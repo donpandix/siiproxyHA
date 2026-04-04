@@ -1,3 +1,78 @@
 spring:
   application:
     name: siiproxyHA
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/dte
+    username: dte_user
+    password: dte_pass
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+    defer-datasource-initialization: false
+
+  sql:
+    init:
+      mode: never
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+minio:
+  endpoint: http://localhost:9000
+  console-endpoint: http://localhost:9001
+  access-key: minio
+  secret-key: minio123
+  bucket: dte-bucket
+  certificates-bucket: certificates-bucket
+
+localstack:
+  endpoint: http://localhost:4566
+  region: us-east-1
+  services: sqs,ssm,kms
+
+# Configuración de seguridad para cifrado de certificados
+security:
+  encryption:
+    # Clave maestra para cifrar contraseñas (se obtiene de variable de entorno en producción)
+    # En dev: generar con: openssl rand -hex 32
+    master-key: ${ENCRYPTION_MASTER_KEY:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
+    algorithm: AES/GCM/NoPadding
+    key-size: 256
+
+# Jasypt configuration (opcional, para cifrar properties sensibles)
+jasypt:
+  encryptor:
+    password: ${JASYPT_ENCRYPTOR_PASSWORD:defaultDevPassword}
+    algorithm: PBEWITHHMACSHA512ANDAES_256
+    iv-generator-classname: org.jasypt.iv.RandomIvGenerator
+
+dte:
+  xsd-path: classpath:xsd
+
+# SII token configuration (placeholder values)
+sii:
+  seed-url: https://palena.sii.cl/DTEWS/CrSeed.jws
+  token-url: https://palena.sii.cl/DTEWS/GetTokenFromSeed.jws
+  upload-url: https://palena.sii.cl/cgi_dte/UPL/DTEUpload
+  certs-folder: classpath:certs
+  certification:
+    seed-url: https://maullin.sii.cl/DTEWS/CrSeed.jws
+    token-url: https://maullin.sii.cl/DTEWS/GetTokenFromSeed.jws
+
+# Actuator management settings
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when-authorized
+      # Use default health groups. If you need explicit groups, set
+      # 'management.endpoint.health.validate-group-membership=false' or
+      # define members that exist (e.g. 'db', 'diskSpace').

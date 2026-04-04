@@ -1,0 +1,28 @@
+{
+  "id": "siiproxyha-env-001",
+  "name": "siiproxyHA Local",
+  "values": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "enabled": true
+    },
+    {
+      "key": "randomId",
+      "value": "",
+      "enabled": true
+    },
+    {
+      "key": "documentId",
+      "value": "",
+      "enabled": true
+    },
+    {
+      "key": "objectKey",
+      "value": "",
+      "enabled": true
+    }
+  ],
+  "timestamp": 0,
+  "synced": false
+}

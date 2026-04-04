@@ -1,0 +1,121 @@
+{
+  "info": {
+    "name": "siiproxyHA API",
+    "_postman_id": "siiproxyha-collection-001",
+    "description": "Colección para probar endpoints básicos de siiproxyHA (ingest y consultas).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "POST Ingest DTE",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"documentId\": \"doc-{{randomId}}\",\n  \"emitterRUT\": \"11111111-1\",\n  \"receiverRUT\": \"22222222-2\",\n  \"xmlBase64\": \"\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/dte",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "dte"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "// Generar randomId si no existe",
+              "if(!pm.environment.get('randomId')){pm.environment.set('randomId', Date.now().toString());}"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "// Guardar documentId o id para uso posterior",
+              "if(pm.response.code===201||pm.response.code===200){",
+              "  var res = pm.response.json();",
+              "  var id = res.documentId || res.id || res.id;",
+              "  if(id) pm.environment.set('documentId', id);",
+              "  if(res.objectKey) pm.environment.set('objectKey', res.objectKey);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "GET Document Status",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/dte/{{documentId}}/status",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "dte",
+            "{{documentId}}",
+            "status"
+          ]
+        }
+      }
+    },
+    {
+      "name": "GET Document XML (presigned)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/dte/{{documentId}}/xml",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "dte",
+            "{{documentId}}",
+            "xml"
+          ]
+        }
+      }
+    }
+    ,
+    {
+      "name": "GET Health",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/health",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "health"
+          ]
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,117 @@
+openapi: 3.0.3
+info:
+  title: SiiproxyHA API
+  version: 0.1.0
+  description: API mínima para ingest de DTE (documentos tributarios electrónicos).
+servers:
+  - url: http://localhost:8080
+paths:
+  /api/v1/dte:
+    post:
+      summary: Ingestar un DTE (XML base64)
+      tags:
+        - dte
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DteRequest'
+      responses:
+        '201':
+          description: Documento creado
+          headers:
+            Location:
+              description: URL al recurso creado
+              schema:
+                type: string
+        '400':
+          description: Petición inválida
+        '409':
+          description: Documento ya existe (idempotencia)
+
+  /api/v1/dte/{id}/status:
+    get:
+      summary: Obtener estado de procesamiento de un DTE
+      tags:
+        - dte
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Estado del documento
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DteStatusResponse'
+        '404':
+          description: Documento no encontrado
+
+  /api/v1/dte/{id}/xml:
+    get:
+      summary: Obtener XML original o URL prefirmada para descarga
+      tags:
+        - dte
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: XML base64 o URL
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DteXmlResponse'
+        '404':
+          description: Documento no encontrado
+
+components:
+  schemas:
+    DteRequest:
+      type: object
+      required:
+        - emitterRUT
+        - receiverRUT
+        - xmlBase64
+      properties:
+        emitterRUT:
+          type: string
+          description: RUT emisor
+        receiverRUT:
+          type: string
+          description: RUT receptor
+        folio:
+          type: string
+          description: Folio del documento (opcional)
+        xmlBase64:
+          type: string
+          description: Contenido XML codificado en base64
+
+    DteStatusResponse:
+      type: object
+      properties:
+        documentId:
+          type: string
+        status:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
+
+    DteXmlResponse:
+      type: object
+      properties:
+        documentId:
+          type: string
+        xmlBase64:
+          type: string
+        presignedUrl:
+          type: string
+          description: URL prefirmada (opcional)
