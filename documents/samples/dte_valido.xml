@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<EnvioDTE xmlns="http://www.sii.cl/SiiDte" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sii.cl/SiiDte EnvioDTE_v10.xsd" version="1.0">
+  <SetDTE ID="SIIPROXY_SetDoc">
+    <Caratula version="1.0">
+      <RutEmisor>76184688-4</RutEmisor>
+      <RutEnvia>10438332-7</RutEnvia>
+      <RutReceptor>60803000-K</RutReceptor>
+      <FchResol>2020-08-14</FchResol>
+      <NroResol>0</NroResol>
+      <TmstFirmaEnv>2026-01-03T18:28:33</TmstFirmaEnv>
+      <SubTotDTE>
+        <TpoDTE>33</TpoDTE>
+        <NroDTE>1</NroDTE>
+      </SubTotDTE>
+    </Caratula>
+    <DTE version="1.0">
+  <Documento ID="RYL_T33F183">
+    <Encabezado>
+      <IdDoc>
+        <TipoDTE>33</TipoDTE>
+        <Folio>183</Folio>
+        <FchEmis>2026-01-03</FchEmis>
+      </IdDoc>
+      <Emisor>
+        <RUTEmisor>76184688-4</RUTEmisor>
+        <RznSoc>REYES Y LARENAS LIMITADA</RznSoc>
+        <GiroEmis>VENTA AL POR MENOR DE OTROS PRODUCTOS EN COMERCIOS ESPECIALIZADOS NCP</GiroEmis>
+        <Acteco>726000</Acteco>
+        <DirOrigen>Viña del Mar</DirOrigen>
+        <CmnaOrigen>V Región</CmnaOrigen>
+      </Emisor>
+      <Receptor>
+        <RUTRecep>60803000-K</RUTRecep>
+        <RznSocRecep>ABC INDUSTRIAL SPA</RznSocRecep>
+        <GiroRecep>DEL GIRO</GiroRecep>
+        <DirRecep>ARLEGUI 263 OF 601</DirRecep>
+        <CmnaRecep>VIÑA DEL MAR</CmnaRecep>
+      </Receptor>
+      <Totales>
+        <MntNeto>100840</MntNeto>
+        <TasaIVA>19</TasaIVA>
+        <IVA>19160</IVA>
+        <MntTotal>120000</MntTotal>
+      </Totales>
+    </Encabezado>
+    <Detalle>
+      <NroLinDet>1</NroLinDet>
+      <NmbItem>RODAMIENTOS : MU1308TMCRAFT BEARING</NmbItem>
+      <QtyItem>1</QtyItem>
+      <PrcItem>100840</PrcItem>
+      <MontoItem>100840</MontoItem>
+    </Detalle>
+    <Referencia>
+      <NroLinRef>1</NroLinRef>
+      <TpoDocRef>SET</TpoDocRef>
+      <FolioRef>183</FolioRef>
+      <FchRef>2026-01-03</FchRef>
+      <RazonRef>referencias de prueba</RazonRef>
+    </Referencia>
+    <TED version="1.0">
+  <DD>
+    <RE>76184688-4</RE>
+    <TD>33</TD>
+    <F>183</F>
+    <FE>2026-01-03</FE>
+    <RR>60803000-K</RR>
+    <RSR>ABC INDUSTRIAL SPA</RSR>
+    <MNT>120000</MNT>
+    <IT1>RODAMIENTOS : MU1308TMCRAFT BEARING</IT1>
+    <CAF version="1.0">
+<DA>
+<RE>76184688-4</RE>
+<RS>REYES Y LARENAS LIMITADA</RS>
+<TD>33</TD>
+<RNG><D>182</D><H>184</H></RNG>
+<FA>2025-12-19</FA>
+<RSAPK><M>3AJXup9uGzDZJJ5VxzillhRpNGlgnuvx1i3ZlEqyHovHt6NzbNGhueQb6P1t2MRZ0jBtUnGl3+OX7hC26RmFxw==</M><E>Aw==</E></RSAPK>
+<IDK>100</IDK>
+</DA>
+<FRMA algoritmo="SHA1withRSA">wfblmzZQBpEqiDVe/SundUnARNBxlSGHV0tW/C75fJcN5HdfKy8hBUujEv/5ptxLVvBHmCW6DeJ1lVNCqArfyQ==</FRMA>
+</CAF>
+    <TSTED>2026-01-03T18:28:33</TSTED>
+  </DD>
+  <FRMT algoritmo="SHA1withRSA">VaElQxRjOttCFCOJxsXApHSfNVi6dz6mEpEj/JSd+5LZJtV2Fs8AeV7pFiw81cWjyHL4RQGs2K0oWDvR7fTm8Q==</FRMT>
+</TED>
+  <TmstFirma>2026-01-03T18:28:33</TmstFirma></Documento>
+<Signature xmlns="http://www.w3.org/2000/09/xmldsig#"><SignedInfo xmlns="http://www.w3.org/2000/09/xmldsig#"><CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/><SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1"/><Reference URI="#RYL_T33F183"><Transforms><Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/></Transforms><DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"/><DigestValue>NsD6/XFAYPoCGPQAmiIqwo5MNjI=</DigestValue></Reference></SignedInfo><SignatureValue>euHhrRQAPH5kq1cjE4ZUIXlmDFqjNh39fTlSmg0+9UG69tyNMdFe0qBIjzp5mvVL
+picmJTzngDDYVKHYkHj9yWdVzFB5EGlTnD0+wjgydcAiLtnywRtIhBxSMD26/MkZ
+4rhkSHSDN4/7fZS+aNteo8h0d7noYi3s/oRTPIXeoxXAAuSUZVmhqYOA+Igzjhh9
+00CGpRSK1iWM2UynX3bSLEqxkshv/lREM9iSRWWduzroPG7fDSIejFrxiVCq9b6U
+BIMpV4NrnFdBM05s5UO2Cb1UI9mII5uVruYLdmoUdtfJoE/KGfGBFV8NV3G2KFYE
+xvDTQ7mO++OIIL1u1gJRiw==</SignatureValue><KeyInfo><KeyValue><RSAKeyValue><Modulus>1iBQtCN1GHjzTQduDjAnsnwSQ6CqJEcTc7qkqAHnnS5uFnrkMx7aKaGFqzXcIaQK
+JEsexPJGRMrzs5f1bilE1M8Glaze/7A6hF2e7Z9xR0PZmNkD/pl8RaEch7j2bwwP
+7xky2bQPSqhAnBusXE6n/Kxske5izoqs5dpF3jlE0LN4rKLk7AG8KwJtmP17h7se
+loqbpqjOqEnoYolGXAjWqEr2/TpwIXZWwP4f7dzFjd/rrPw7XpglUooRs0JUFxOA
+UA3WNpZxmjlirlBWEywl2MEeFGr+P1wnxDpBSltXaHClp495ySkzATc6U2uftd3x
+/RuS/rWFWHHwP/G5Xb9CSQ==</Modulus><Exponent>AQAB</Exponent></RSAKeyValue></KeyValue><X509Data><X509Certificate>MIIGyjCCBbKgAwIBAgIDBOOjMA0GCSqGSIb3DQEBCwUAMIGmMQswCQYDVQQGEwJD
+TDEYMBYGA1UEChMPQWNlcHRhLmNvbSBTLkEuMUgwRgYDVQQDEz9BY2VwdGEuY29t
+IEF1dG9yaWRhZCBDZXJ0aWZpY2Fkb3JhIENsYXNlIDMgUGVyc29uYSBOYXR1cmFs
+IC0gRzQxHjAcBgkqhkiG9w0BCQEWD2luZm9AYWNlcHRhLmNvbTETMBEGA1UEBRMK
+OTY5MTkwNTAtODAeFw0yNTAxMTcxNTUzMjFaFw0yODAxMTcxNTUzMjFaMIGHMQsw
+CQYDVQQGEwJDTDEYMBYGA1UEDBMPUEVSU09OQSBOQVRVUkFMMSAwHgYDVQQDExdH
+VUlETyBFTUlMSU8gUkVZRVMgUklPUzEnMCUGCSqGSIb3DQEJARYYUk9EQU1JRU5U
+T1NSWUxAR01BSUwuQ09NMRMwEQYDVQQFEwoxMDQzODMzMi03MIIBIjANBgkqhkiG
+9w0BAQEFAAOCAQ8AMIIBCgKCAQEA1iBQtCN1GHjzTQduDjAnsnwSQ6CqJEcTc7qk
+qAHnnS5uFnrkMx7aKaGFqzXcIaQKJEsexPJGRMrzs5f1bilE1M8Glaze/7A6hF2e
+7Z9xR0PZmNkD/pl8RaEch7j2bwwP7xky2bQPSqhAnBusXE6n/Kxske5izoqs5dpF
+3jlE0LN4rKLk7AG8KwJtmP17h7seloqbpqjOqEnoYolGXAjWqEr2/TpwIXZWwP4f
+7dzFjd/rrPw7XpglUooRs0JUFxOAUA3WNpZxmjlirlBWEywl2MEeFGr+P1wnxDpB
+SltXaHClp495ySkzATc6U2uftd3x/RuS/rWFWHHwP/G5Xb9CSQIDAQABo4IDHDCC
+AxgwCQYDVR0TBAIwADAfBgNVHSMEGDAWgBSq/b3F6TdN9plNV47BcRr568MG4zAd
+BgNVHQ4EFgQUkDtWSzZLJHui7bVpJc9G7oX1jbgwCwYDVR0PBAQDAgTwMB0GA1Ud
+JQQWMBQGCCsGAQUFBwMCBggrBgEFBQcDBDCB+gYDVR0gBIHyMIHvMIHsBggrBgEE
+AbVrAjCB3zAxBggrBgEFBQcCARYlaHR0cHM6Ly9hY2c0LmFjZXB0YS5jb20vQ1BT
+LUFjZXB0YWNvbTCBqQYIKwYBBQUHAgIwgZwwFhYPQWNlcHRhLmNvbSBTLkEuMAMC
+AQIagYFFbCB0aXR1bGFyIGhhIHNpZG8gdmFsaWRhZG8gZW4gZm9ybWEgcHJlc2Vu
+Y2lhbCwgcXVlZGFuZG8gaGFiaWxpdGFkbyBlbCBDZXJ0aWZpY2FkbyBwYXJhIHVz
+byB0cmlidXRhcmlvLCBwYWdvcywgY29tZXJjaW8geSBvdHJvcy4wWgYDVR0SBFMw
+UaAYBggrBgEEAcEBAqAMFgo5NjkxOTA1MC04oCQGCCsGAQUFBwgDoBgwFgwKOTY5
+MTkwNTAtOAYIKwYBBAHBAQKBD2luZm9AYWNlcHRhLmNvbTBjBgNVHREEXDBaoBgG
+CCsGAQQBwQEBoAwWCjEwNDM4MzMyLTegJAYIKwYBBQUHCAOgGDAWDAoxMDQzODMz
+Mi03BggrBgEEAcEBAoEYUk9EQU1JRU5UT1NSWUxAR01BSUwuQ09NMIGfBggrBgEF
+BQcBAQSBkjCBjzBUBggrBgEFBQcwAoZIaHR0cHM6Ly9hY2c0LmFjZXB0YS5jb20v
+ZGVzY2FyZ2FzL2FjZXB0YS5jb20uZzQuQ2xhc2UzUGVyc29uYU5hdHVyYWwuY3J0
+MDcGCCsGAQUFBzABhitodHRwczovL2FjZzQuYWNlcHRhLmNvbS9hY2c0L29jc3Av
+Q2xhc2UzLUc0MD8GA1UdHwQ4MDYwNKAyoDCGLmh0dHBzOi8vYWNnNC5hY2VwdGEu
+Y29tL2FjZzQvY3JsL0NsYXNlMy1HNC5jcmwwDQYJKoZIhvcNAQELBQADggEBAA0Q
+njpYoG9Q12lVYFf9EELzoQNYjLDDLuGsyGJ2SYxmQqYBvDEPd3eRcoVUnDJUM7vN
+qh/mIVc0vRkoRT+V9TRu9MXW+lKLWv2KBDzxIKoFxHgzPVJ1s2khoGBF8OBCLaaV
+eO9SunMLsL28Vh+y1zNsaPUMy3PghlGvctRGRcmTNC+4n1uMxLEgYHZV9GrN47jT
+8zqiRGqe50yJuQmW0yYZ9MRfaPbTrio43JzR3otQOY2S6fpcTi5F4szRlAmT0unr
+8aC4ynoFh5JLmij29C//1wjAamfXi1wtAH8rThyjXWc2gcNjAf2T/aEjmyV6l3cU
+VfklnoTkjf1U57gJQ5E=</X509Certificate></X509Data></KeyInfo></Signature></DTE>
+  </SetDTE>
+<Signature xmlns="http://www.w3.org/2000/09/xmldsig#"><SignedInfo xmlns="http://www.w3.org/2000/09/xmldsig#" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/><SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1"/><Reference URI="#SIIPROXY_SetDoc"><Transforms><Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/></Transforms><DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"/><DigestValue>FkxbuGCX5yLIC6USXc354YSJL6w=</DigestValue></Reference></SignedInfo><SignatureValue>fQtFVMOIMKj9eVVejEHHcSRYXURT47cMw97+NqnUrB0knhP3HnLuVlzP66Gq8dcy
+Hgo3yTAzgO4vV3MLf4ATYL550Ks6Y6akQwGkPlah1C2B2jcWouqcrCt1wsf2sl8g
+ui0oDAPcczdASJ1k/QtxdoWIRMBu3ShLGK4m8OMAg18Ul1TLmsyyXuHcVBTHLO/3
+FDuulYM7/i5knPTsCYAvN1213Il8ylihZAgeH7zXRfcB8ECOSxovzYxXFvg7wjFp
+rv5TjVFmlBdm21XJ6ni/WH1Md9hsquV5LMmG483eNPwg+nx0lLJcvtYeboftmyQD
+jbpeUbOnjvXGRPgi/U/Jwg==</SignatureValue><KeyInfo><KeyValue><RSAKeyValue><Modulus>1iBQtCN1GHjzTQduDjAnsnwSQ6CqJEcTc7qkqAHnnS5uFnrkMx7aKaGFqzXcIaQK
+JEsexPJGRMrzs5f1bilE1M8Glaze/7A6hF2e7Z9xR0PZmNkD/pl8RaEch7j2bwwP
+7xky2bQPSqhAnBusXE6n/Kxske5izoqs5dpF3jlE0LN4rKLk7AG8KwJtmP17h7se
+loqbpqjOqEnoYolGXAjWqEr2/TpwIXZWwP4f7dzFjd/rrPw7XpglUooRs0JUFxOA
+UA3WNpZxmjlirlBWEywl2MEeFGr+P1wnxDpBSltXaHClp495ySkzATc6U2uftd3x
+/RuS/rWFWHHwP/G5Xb9CSQ==</Modulus><Exponent>AQAB</Exponent></RSAKeyValue></KeyValue><X509Data><X509Certificate>MIIGyjCCBbKgAwIBAgIDBOOjMA0GCSqGSIb3DQEBCwUAMIGmMQswCQYDVQQGEwJD
+TDEYMBYGA1UEChMPQWNlcHRhLmNvbSBTLkEuMUgwRgYDVQQDEz9BY2VwdGEuY29t
+IEF1dG9yaWRhZCBDZXJ0aWZpY2Fkb3JhIENsYXNlIDMgUGVyc29uYSBOYXR1cmFs
+IC0gRzQxHjAcBgkqhkiG9w0BCQEWD2luZm9AYWNlcHRhLmNvbTETMBEGA1UEBRMK
+OTY5MTkwNTAtODAeFw0yNTAxMTcxNTUzMjFaFw0yODAxMTcxNTUzMjFaMIGHMQsw
+CQYDVQQGEwJDTDEYMBYGA1UEDBMPUEVSU09OQSBOQVRVUkFMMSAwHgYDVQQDExdH
+VUlETyBFTUlMSU8gUkVZRVMgUklPUzEnMCUGCSqGSIb3DQEJARYYUk9EQU1JRU5U
+T1NSWUxAR01BSUwuQ09NMRMwEQYDVQQFEwoxMDQzODMzMi03MIIBIjANBgkqhkiG
+9w0BAQEFAAOCAQ8AMIIBCgKCAQEA1iBQtCN1GHjzTQduDjAnsnwSQ6CqJEcTc7qk
+qAHnnS5uFnrkMx7aKaGFqzXcIaQKJEsexPJGRMrzs5f1bilE1M8Glaze/7A6hF2e
+7Z9xR0PZmNkD/pl8RaEch7j2bwwP7xky2bQPSqhAnBusXE6n/Kxske5izoqs5dpF
+3jlE0LN4rKLk7AG8KwJtmP17h7seloqbpqjOqEnoYolGXAjWqEr2/TpwIXZWwP4f
+7dzFjd/rrPw7XpglUooRs0JUFxOAUA3WNpZxmjlirlBWEywl2MEeFGr+P1wnxDpB
+SltXaHClp495ySkzATc6U2uftd3x/RuS/rWFWHHwP/G5Xb9CSQIDAQABo4IDHDCC
+AxgwCQYDVR0TBAIwADAfBgNVHSMEGDAWgBSq/b3F6TdN9plNV47BcRr568MG4zAd
+BgNVHQ4EFgQUkDtWSzZLJHui7bVpJc9G7oX1jbgwCwYDVR0PBAQDAgTwMB0GA1Ud
+JQQWMBQGCCsGAQUFBwMCBggrBgEFBQcDBDCB+gYDVR0gBIHyMIHvMIHsBggrBgEE
+AbVrAjCB3zAxBggrBgEFBQcCARYlaHR0cHM6Ly9hY2c0LmFjZXB0YS5jb20vQ1BT
+LUFjZXB0YWNvbTCBqQYIKwYBBQUHAgIwgZwwFhYPQWNlcHRhLmNvbSBTLkEuMAMC
+AQIagYFFbCB0aXR1bGFyIGhhIHNpZG8gdmFsaWRhZG8gZW4gZm9ybWEgcHJlc2Vu
+Y2lhbCwgcXVlZGFuZG8gaGFiaWxpdGFkbyBlbCBDZXJ0aWZpY2FkbyBwYXJhIHVz
+byB0cmlidXRhcmlvLCBwYWdvcywgY29tZXJjaW8geSBvdHJvcy4wWgYDVR0SBFMw
+UaAYBggrBgEEAcEBAqAMFgo5NjkxOTA1MC04oCQGCCsGAQUFBwgDoBgwFgwKOTY5
+MTkwNTAtOAYIKwYBBAHBAQKBD2luZm9AYWNlcHRhLmNvbTBjBgNVHREEXDBaoBgG
+CCsGAQQBwQEBoAwWCjEwNDM4MzMyLTegJAYIKwYBBQUHCAOgGDAWDAoxMDQzODMz
+Mi03BggrBgEEAcEBAoEYUk9EQU1JRU5UT1NSWUxAR01BSUwuQ09NMIGfBggrBgEF
+BQcBAQSBkjCBjzBUBggrBgEFBQcwAoZIaHR0cHM6Ly9hY2c0LmFjZXB0YS5jb20v
+ZGVzY2FyZ2FzL2FjZXB0YS5jb20uZzQuQ2xhc2UzUGVyc29uYU5hdHVyYWwuY3J0
+MDcGCCsGAQUFBzABhitodHRwczovL2FjZzQuYWNlcHRhLmNvbS9hY2c0L29jc3Av
+Q2xhc2UzLUc0MD8GA1UdHwQ4MDYwNKAyoDCGLmh0dHBzOi8vYWNnNC5hY2VwdGEu
+Y29tL2FjZzQvY3JsL0NsYXNlMy1HNC5jcmwwDQYJKoZIhvcNAQELBQADggEBAA0Q
+njpYoG9Q12lVYFf9EELzoQNYjLDDLuGsyGJ2SYxmQqYBvDEPd3eRcoVUnDJUM7vN
+qh/mIVc0vRkoRT+V9TRu9MXW+lKLWv2KBDzxIKoFxHgzPVJ1s2khoGBF8OBCLaaV
+eO9SunMLsL28Vh+y1zNsaPUMy3PghlGvctRGRcmTNC+4n1uMxLEgYHZV9GrN47jT
+8zqiRGqe50yJuQmW0yYZ9MRfaPbTrio43JzR3otQOY2S6fpcTi5F4szRlAmT0unr
+8aC4ynoFh5JLmij29C//1wjAamfXi1wtAH8rThyjXWc2gcNjAf2T/aEjmyV6l3cU
+VfklnoTkjf1U57gJQ5E=</X509Certificate></X509Data></KeyInfo></Signature></EnvioDTE>

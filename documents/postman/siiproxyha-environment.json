@@ -22,6 +22,45 @@
       "value": "",
       "enabled": true
     }
+    ,
+    {
+      "key": "tenantId",
+      "value": "",
+      "enabled": true
+    }
+    ,
+    {
+      "key": "cafId",
+      "value": "",
+      "enabled": true
+    }
+    ,
+    {
+      "key": "receptorId",
+      "value": "",
+      "enabled": true
+    }
+    ,
+    {
+      "key": "certId",
+      "value": "",
+      "enabled": true
+    },
+    {
+      "key": "rutUsuario",
+      "value": "12345678-9",
+      "enabled": true
+    },
+    {
+      "key": "nombreUsuario",
+      "value": "Usuario Prueba",
+      "enabled": true
+    },
+    {
+      "key": "certPassword",
+      "value": "password123",
+      "enabled": true
+    }
   ],
   "timestamp": 0,
   "synced": false

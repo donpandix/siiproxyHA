@@ -7,115 +7,404 @@
   },
   "item": [
     {
-      "name": "POST Ingest DTE",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"documentId\": \"doc-{{randomId}}\",\n  \"emitterRUT\": \"11111111-1\",\n  \"receiverRUT\": \"22222222-2\",\n  \"xmlBase64\": \"\"\n}"
-        },
-        "url": {
-          "raw": "{{baseUrl}}/api/v1/dte",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "api",
-            "v1",
-            "dte"
+      "name": "DTE",
+      "item": [
+        {
+          "name": "POST Ingest DTE",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"9dbb65c0-8f17-4805-9fa9-4b5f33582300\",\n  \"tenantId\": \"cac36041-6911-44d7-96cc-fe9b26a61906\",\n  \"tenantCode\": \"REYES_Y_LARENAS_LIMITADA\",\n  \"tipoDte\": 33,\n  \"folio\": 182,\n  \"fchEmis\": \"2026-02-15\",\n  \"receptorId\": \"5f6ba3a5-ffaa-44bd-bbed-f595624c97d4\",\n  \"references\": [\n    {\n      \"nroLinRef\": 1,\n      \"tpoDocRef\": \"SET\",\n      \"folioRef\": \"183\",\n      \"fchRef\": \"2026-01-03\",\n      \"codRef\": \"1\",\n      \"razonRef\": \"referencias de prueba\"\n    }\n  ],\n  \"items\": [\n    {\n      \"id\": \"e45677f8-e8e1-4075-b4ce-fe545a537a99\",\n      \"nroLinDet\": 1,\n      \"nmbItem\": \"Producto A\",\n      \"dscItem\": null,\n      \"qtyItem\": 2.0,\n      \"unmdItem\": null,\n      \"prcItem\": 1000.0,\n      \"montoItem\": 2000,\n      \"indExe\": null\n    },\n    {\n      \"id\": \"44928333-d710-42fd-88bc-9af68d68ed2e\",\n      \"nroLinDet\": 2,\n      \"nmbItem\": \"Producto B\",\n      \"dscItem\": null,\n      \"qtyItem\": 5.0,\n      \"unmdItem\": null,\n      \"prcItem\": 1000.0,\n      \"montoItem\": 5000,\n      \"indExe\": null\n    }\n  ],\n  \"mntNeto\": 7000,\n  \"iva\": 1330,\n  \"mntTotal\": 8330\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/dte",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dte"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// Generar randomId si no existe",
+                  "if(!pm.environment.get('randomId')){pm.environment.set('randomId', Date.now().toString());}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Guardar documentId o id para uso posterior",
+                  "if(pm.response.code===201||pm.response.code===200){",
+                  "  var res = pm.response.json();",
+                  "  var id = res.documentId || res.id || res.id;",
+                  "  if(id) pm.environment.set('documentId', id);",
+                  "  if(res.objectKey) pm.environment.set('objectKey', res.objectKey);",
+                  "}"
+                ]
+              }
+            }
           ]
-        }
-      },
-      "event": [
+        },
         {
-          "listen": "prerequest",
-          "script": {
-            "exec": [
-              "// Generar randomId si no existe",
-              "if(!pm.environment.get('randomId')){pm.environment.set('randomId', Date.now().toString());}"
-            ]
+          "name": "GET Document Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/dte/{{documentId}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dte",
+                "{{documentId}}",
+                "status"
+              ]
+            }
           }
         },
         {
-          "listen": "test",
-          "script": {
-            "exec": [
-              "// Guardar documentId o id para uso posterior",
-              "if(pm.response.code===201||pm.response.code===200){",
-              "  var res = pm.response.json();",
-              "  var id = res.documentId || res.id || res.id;",
-              "  if(id) pm.environment.set('documentId', id);",
-              "  if(res.objectKey) pm.environment.set('objectKey', res.objectKey);",
-              "}"
-            ]
+          "name": "GET Document XML (presigned)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/dte/{{documentId}}/xml",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dte",
+                "{{documentId}}",
+                "xml"
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET List DTE",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/dte/records?tenantId={{tenantId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dte",
+                "records"
+              ],
+              "query": [
+                { "key": "tenantId", "value": "{{tenantId}}" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET DTE by Id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/dte/records/{{documentId}}?tenantId={{tenantId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dte",
+                "records",
+                "{{documentId}}"
+              ],
+              "query": [
+                { "key": "tenantId", "value": "{{tenantId}}" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PUT Update DTE",
+          "request": {
+            "method": "PUT",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipoDte\": 33,\n  \"folio\": 1000,\n  \"totNeto\": 1000.0,\n  \"totIVA\": 190.0,\n  \"totMonto\": 1190.0\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/dte/records/{{documentId}}?tenantId={{tenantId}}",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api","v1","dte","records","{{documentId}}" ],
+              "query": [ { "key": "tenantId", "value": "{{tenantId}}" } ]
+            }
+          }
+        },
+        {
+          "name": "DELETE DTE",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/dte/records/{{documentId}}?tenantId={{tenantId}}",
+              "host": [ "{{baseUrl}}" ],
+              "path": [ "api","v1","dte","records","{{documentId}}" ],
+              "query": [ { "key": "tenantId", "value": "{{tenantId}}" } ]
+            }
           }
         }
       ]
     },
     {
-      "name": "GET Document Status",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": {
-          "raw": "{{baseUrl}}/api/v1/dte/{{documentId}}/status",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "api",
-            "v1",
-            "dte",
-            "{{documentId}}",
-            "status"
-          ]
+      "name": "Health",
+      "item": [
+        {
+          "name": "GET Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "health"
+              ]
+            }
+          }
         }
-      }
+      ]
     },
     {
-      "name": "GET Document XML (presigned)",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": {
-          "raw": "{{baseUrl}}/api/v1/dte/{{documentId}}/xml",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "api",
-            "v1",
-            "dte",
-            "{{documentId}}",
-            "xml"
+      "name": "Tenants",
+      "item": [
+        {
+          "name": "POST Create Tenant",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tenantCode\": \"acme\",\n  \"rutEmisor\": \"76184688-4\",\n  \"razonSocial\": \"ACME S.A.\",\n  \"giro\": \"Comercio\",\n  \"acteco\": \"123456\",\n  \"direccion\": \"Av. Siempre Viva 123\",\n  \"comuna\": \"Santiago\",\n  \"ciudad\": \"Santiago\",\n  \"email\": \"contacto@acme.test\",\n  \"active\": true,\n  \"receptores\": [\n    {\n      \"rutReceptor\": \"22222222-2\",\n      \"razonSocial\": \"Cliente Uno\",\n      \"email\": \"cliente1@acme.test\"\n    }\n  ]\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/tenants", "host": ["{{baseUrl}}"], "path": ["api","v1","tenants"] }
+          }
+        },
+        {
+          "name": "GET List Tenants",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v1/tenants", "host": ["{{baseUrl}}"], "path": ["api","v1","tenants"] }
+          }
+        },
+        {
+          "name": "GET Tenant by Id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v1/tenants/{{tenantId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","tenants","{{tenantId}}"] }
+          }
+        },
+        {
+          "name": "Receptores",
+          "item": [
+            {
+              "name": "POST Create Receptor",
+              "request": {
+                "method": "POST",
+                "header": [ { "key": "Content-Type", "value": "application/json" } ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"rutReceptor\": \"22222222-2\",\n  \"razonSocial\": \"Cliente Uno\",\n  \"giro\": \"Comercio\",\n  \"email\": \"cliente1@acme.test\",\n  \"telefono\": \"12345678\",\n  \"direccion\": \"Calle X 123\",\n  \"comuna\": \"Santiago\",\n  \"ciudad\": \"Santiago\"\n}"
+                },
+                "url": { "raw": "{{baseUrl}}/api/v1/tenants/{{tenantId}}/receptores", "host": ["{{baseUrl}}"], "path": ["api","v1","tenants","{{tenantId}}","receptores"] }
+              }
+            },
+            {
+              "name": "GET List Receptores",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{baseUrl}}/api/v1/tenants/{{tenantId}}/receptores", "host": ["{{baseUrl}}"], "path": ["api","v1","tenants","{{tenantId}","receptores"] }
+              }
+            },
+            {
+              "name": "GET Receptor by Id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{baseUrl}}/api/v1/receptores/{{receptorId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","receptores","{{receptorId}}"] }
+              }
+            },
+            {
+              "name": "PUT Update Receptor",
+              "request": {
+                "method": "PUT",
+                "header": [ { "key": "Content-Type", "value": "application/json" } ],
+                "body": { "mode": "raw", "raw": "{\n  \"razonSocial\": \"Cliente Uno Actualizado\",\n  \"email\": \"nuevo@cliente.test\"\n}" },
+                "url": { "raw": "{{baseUrl}}/api/v1/receptores/{{receptorId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","receptores","{{receptorId}}"] }
+              }
+            },
+            {
+              "name": "DELETE Receptor",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": { "raw": "{{baseUrl}}/api/v1/receptores/{{receptorId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","receptores","{{receptorId}}"] }
+              }
+            }
+            ]
+        },
+        {
+          "name": "Certificados",
+          "item": [
+            {
+              "name": "POST Upload Certificate",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    { "key": "rutUsuario", "type": "text", "value": "{{rutUsuario}}" },
+                    { "key": "nombreUsuario", "type": "text", "value": "{{nombreUsuario}}" },
+                    { "key": "password", "type": "text", "value": "{{certPassword}}" },
+                    { "key": "isDefault", "type": "text", "value": "true" },
+                    { "key": "createdBy", "type": "text", "value": "postman" },
+                    { "key": "file", "type": "file" }
+                  ]
+                },
+                "url": { "raw": "{{baseUrl}}/api/tenants/{{tenantId}}/certificates", "host": ["{{baseUrl}}"], "path": ["api","tenants","{{tenantId}}","certificates"] }
+              }
+            },
+            {
+              "name": "GET List Certificates",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{baseUrl}}/api/tenants/{{tenantId}}/certificates", "host": ["{{baseUrl}}"], "path": ["api","tenants","{{tenantId}}","certificates"] }
+              }
+            },
+            {
+              "name": "GET Certificate by Id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{baseUrl}}/api/tenants/{{tenantId}}/certificates/{{certId}}", "host": ["{{baseUrl}}"], "path": ["api","tenants","{{tenantId}}","certificates","{{certId}}"] }
+              }
+            },
+            {
+              "name": "DELETE Certificate",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": { "raw": "{{baseUrl}}/api/tenants/{{tenantId}}/certificates/{{certId}}", "host": ["{{baseUrl}}"], "path": ["api","tenants","{{tenantId}}","certificates","{{certId}}"] }
+              }
+            }
           ]
+        },
+        {
+          "name": "PUT Update Tenant",
+          "request": {
+            "method": "PUT",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tenantCode\": \"acme\",\n  \"rutEmisor\": \"76184688-4\",\n  \"razonSocial\": \"ACME S.A. - actualizado\",\n  \"email\": \"nuevo@acme.test\",\n  \"active\": true\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/tenants/{{tenantId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","tenants","{{tenantId}}"] }
+          }
+        },
+        {
+          "name": "DELETE Tenant",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v1/tenants/{{tenantId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","tenants","{{tenantId}}"] }
+          }
         }
-      }
-    }
-    ,
+      ]
+    },
     {
-      "name": "GET Health",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": {
-          "raw": "{{baseUrl}}/api/v1/health",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "api",
-            "v1",
-            "health"
-          ]
+      "name": "CAF",
+      "item": [
+        {
+          "name": "POST Upload CAF",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "tenantId", "type": "text", "value": "{{tenantId}}" },
+                { "key": "file", "type": "file" }
+              ]
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/caf", "host": ["{{baseUrl}}"], "path": ["api","v1","caf"] }
+          }
+        },
+        {
+          "name": "GET List CAF",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v1/caf", "host": ["{{baseUrl}}"], "path": ["api","v1","caf"] }
+          }
+        },
+        {
+          "name": "GET CAF by Id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v1/caf/{{cafId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","caf","{{cafId}}"] }
+          }
+        },
+        {
+          "name": "GET CAF Download",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v1/caf/{{cafId}}/download", "host": ["{{baseUrl}}"], "path": ["api","v1","caf","{{cafId}}","download"] }
+          }
+        },
+        {
+          "name": "DELETE CAF",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v1/caf/{{cafId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","caf","{{cafId}}"] }
+          }
         }
-      }
+      ]
     }
   ]
 }

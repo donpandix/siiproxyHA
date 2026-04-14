@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="ISO-8859-1" standalone="no"?>
+<DTE xmlns="http://www.sii.cl/SiiDte" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="1.0">
+  <Documento ID="DTE-183">
+    <Encabezado>
+      <IdDoc>
+        <TipoDTE>33</TipoDTE>
+        <Folio>183</Folio>
+        <FchEmis>2026-02-01</FchEmis>
+      </IdDoc>
+      <Emisor>
+        <RUTEmisor>76184688-4</RUTEmisor>
+        <RznSoc>REYES Y LARENAS LIMITADA</RznSoc>
+        <GiroEmis>ENTA AL POR MENOR DE OTROS PRODUCTOS EN COMERCIOS ESPECIALIZADOS NCP</GiroEmis>
+        <Acteco>726000</Acteco>
+        <DirOrigen>Viña del Mar</DirOrigen>
+        <CmnaOrigen>V Region</CmnaOrigen>
+      </Emisor>
+      <Receptor>
+        <RUTRecep>60803000-K</RUTRecep>
+        <RznSocRecep>ABC INDUSTRIAL SPA</RznSocRecep>
+        <GiroRecep>DEL GIRO</GiroRecep>
+        <DirRecep>ARLEGUI 263 OF 601</DirRecep>
+        <CmnaRecep>VINA DEL MAR</CmnaRecep>
+      </Receptor>
+      <Totales>
+        <MntNeto>100</MntNeto>
+        <TasaIVA>19</TasaIVA>
+        <IVA>19</IVA>
+        <MntTotal>119</MntTotal>
+      </Totales>
+    </Encabezado>
+    <Detalle>
+      <NroLinDet>1</NroLinDet>
+      <NmbItem>Producto ejemplo</NmbItem>
+      <QtyItem>1</QtyItem>
+      <PrcItem>100</PrcItem>
+      <MontoItem>100</MontoItem>
+    </Detalle>
+    <TED version="1.0">
+      <DD>
+        <RE>76184688-4</RE>
+        <TD>33</TD>
+        <F>183</F>
+        <FE>2026-02-01</FE>
+        <RR>60803000-K</RR>
+        <RSR>Cliente Ejemplo</RSR>
+        <MNT>119</MNT>
+        <IT1>Producto ejemplo</IT1>
+        <TSTED>2026-02-01T11:29:28.490117</TSTED>
+      </DD>
+      <FRMT algoritmo="SHA1withRSA">PLACEHOLDER</FRMT>
+    </TED>
+    <TmstFirma>2026-02-01T11:29:28.490138</TmstFirma>
+  </Documento>
+</DTE>

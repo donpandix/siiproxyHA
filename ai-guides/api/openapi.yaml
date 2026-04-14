@@ -17,6 +17,16 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/DteRequest'
+            example:
+              documentId: doc-1234567890
+              emitterRUT: 11111111-1
+              receiverRUT: 22222222-2
+              xmlBase64: ""
+              assignFolio: true
+              tipoDte: 33
+              puntoVenta: 1
+              requestId: req-1234567890
+              assignedTo: POSTMAN
       responses:
         '201':
           description: Documento creado
@@ -79,20 +89,35 @@ components:
       required:
         - emitterRUT
         - receiverRUT
-        - xmlBase64
       properties:
+        documentId:
+          type: string
+          description: Identificador externo/idempotente del documento (opcional)
         emitterRUT:
           type: string
           description: RUT emisor
         receiverRUT:
           type: string
           description: RUT receptor
-        folio:
-          type: string
-          description: Folio del documento (opcional)
         xmlBase64:
           type: string
-          description: Contenido XML codificado en base64
+          description: Contenido XML codificado en base64 (opcional)
+        assignFolio:
+          type: boolean
+          description: Si es true, asigna folio automáticamente al ingresar el DTE
+          default: true
+        tipoDte:
+          type: integer
+          description: Tipo de DTE a usar para asignación automática (default 33)
+        puntoVenta:
+          type: integer
+          description: Punto de venta para la asignación automática (default 1)
+        requestId:
+          type: string
+          description: Idempotency key para asignación de folio
+        assignedTo:
+          type: string
+          description: Identificador del actor/sistema que solicita la asignación
 
     DteStatusResponse:
       type: object
