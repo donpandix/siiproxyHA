@@ -213,7 +213,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"tenantCode\": \"acme\",\n  \"rutEmisor\": \"76184688-4\",\n  \"razonSocial\": \"ACME S.A.\",\n  \"giro\": \"Comercio\",\n  \"acteco\": \"123456\",\n  \"direccion\": \"Av. Siempre Viva 123\",\n  \"comuna\": \"Santiago\",\n  \"ciudad\": \"Santiago\",\n  \"email\": \"contacto@acme.test\",\n  \"active\": true,\n  \"receptores\": [\n    {\n      \"rutReceptor\": \"22222222-2\",\n      \"razonSocial\": \"Cliente Uno\",\n      \"email\": \"cliente1@acme.test\"\n    }\n  ]\n}"
+              "raw": "{\n  \"tenantCode\": \"REYES_Y_LARENAS_LIMITADA\",\n  \"rutEmisor\": \"76184688-4\",\n  \"razonSocial\": \"REYES Y LARENAS LIMITADA\",\n  \"giro\": \"VENTA AL POR MENOR DE OTROS PRODUCTOS EN COMERCIOS ESPECIALIZADOS NCP\",\n  \"acteco\": \"726000\",\n  \"direccion\": \"Viña del Mar\",\n  \"comuna\": \"V Región\",\n  \"ciudad\": \"Viña del Mar\",\n  \"active\": true,\n  \"receptores\": [\n    {\n      \"rutReceptor\": \"60803000-K\"\n    }\n  ]\n}"
             },
             "url": { "raw": "{{baseUrl}}/api/v1/tenants", "host": ["{{baseUrl}}"], "path": ["api","v1","tenants"] }
           }
