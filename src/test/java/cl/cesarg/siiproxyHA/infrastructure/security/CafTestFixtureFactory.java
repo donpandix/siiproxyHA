@@ -11,25 +11,25 @@ import java.security.interfaces.RSAPublicKey;
 import java.util.Arrays;
 import java.util.Base64;
 
-final class CafTestFixtureFactory {
+public final class CafTestFixtureFactory {
 
-    static final String RUT_EMISOR = "10438332-7";
-    static final int TIPO_DTE = 33;
-    static final long FOLIO_DESDE = 100;
-    static final long FOLIO_HASTA = 110;
+    public static final String RUT_EMISOR = "10438332-7";
+    public static final int TIPO_DTE = 33;
+    public static final long FOLIO_DESDE = 100;
+    public static final long FOLIO_HASTA = 110;
 
     private CafTestFixtureFactory() {
     }
 
-    static Fixture create() throws Exception {
+    public static Fixture create() throws Exception {
         return create(true, false);
     }
 
-    static Fixture createWithoutPrivateKey() throws Exception {
+    public static Fixture createWithoutPrivateKey() throws Exception {
         return create(false, false);
     }
 
-    static Fixture createWithMismatchedPrivateKey() throws Exception {
+    public static Fixture createWithMismatchedPrivateKey() throws Exception {
         return create(true, true);
     }
 
@@ -101,9 +101,9 @@ final class CafTestFixtureFactory {
         return encoded;
     }
 
-    record Fixture(byte[] xml, KeyPair keyPair) {
+    public record Fixture(byte[] xml, KeyPair keyPair) {
 
-        Fixture {
+        public Fixture {
             xml = Arrays.copyOf(xml, xml.length);
         }
 

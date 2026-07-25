@@ -23,3 +23,22 @@ Observaciones:
 
 - Mantener fixtures legibles en `src/test/resources`.
 - Para pruebas de performance/contrato, documentar y ejecutar por separado.
+
+## Vertical de integración DTE
+
+`DteEmissionIntegrationTest` levanta PostgreSQL y MinIO con Testcontainers y
+ejecuta el flujo HTTP completo: creación de CAF y PKCS#12 efímeros, asignación
+de folio, TED/FRMT, firmas de `Documento` y `SetDTE`, validación integral,
+persistencia de estados, almacenamiento, descarga y replay idempotente.
+
+Ejecución focalizada:
+
+```bash
+./mvnw -q \
+  -Dtest=cl.cesarg.siiproxyHA.application.service.DteEmissionIntegrationTest \
+  test
+```
+
+La prueba requiere Docker y se omite cuando Docker no está disponible. No
+realiza llamadas al ambiente de certificación ni a servicios productivos del
+SII.
