@@ -2,11 +2,13 @@ package cl.cesarg.siiproxyHA.interfaces.rest;
 
 import cl.cesarg.siiproxyHA.application.service.UserCertificateService;
 import cl.cesarg.siiproxyHA.infrastructure.persistence.UserCertificateEntity;
+import cl.cesarg.siiproxyHA.interfaces.rest.dto.UserCertificateDto;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.net.URI;
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -43,6 +45,29 @@ public class TenantCertificateController {
         );
 
         URI location = URI.create(String.format("/api/tenants/%s/certificates/%s", tenantId, entity.getId()));
-        return ResponseEntity.created(location).body(entity);
+        return ResponseEntity.created(location).body(UserCertificateDto.fromEntity(entity));
+    }
+
+    @GetMapping
+    public ResponseEntity<List<UserCertificateDto>> listCertificates(@PathVariable UUID tenantId) {
+        List<UserCertificateDto> certificates = service.listCertificates(tenantId).stream()
+                .map(UserCertificateDto::fromEntity)
+                .toList();
+
+        return ResponseEntity.ok(certificates);
+    }
+
+    @GetMapping("/{certificateId}")
+    public ResponseEntity<UserCertificateDto> getCertificate(@PathVariable UUID tenantId,
+                                                             @PathVariable UUID certificateId) {
+        UserCertificateEntity certificate = service.getCertificate(tenantId, certificateId);
+        return ResponseEntity.ok(UserCertificateDto.fromEntity(certificate));
+    }
+
+    @DeleteMapping("/{certificateId}")
+    public ResponseEntity<Void> deleteCertificate(@PathVariable UUID tenantId,
+                                                  @PathVariable UUID certificateId) {
+        service.deleteCertificate(tenantId, certificateId);
+        return ResponseEntity.noContent().build();
     }
 }

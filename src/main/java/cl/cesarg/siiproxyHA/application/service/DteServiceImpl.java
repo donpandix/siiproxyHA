@@ -132,6 +132,25 @@ public class DteServiceImpl implements DteService {
     }
 
     @Override
+    public DocumentMetadata store(Dte dte) throws Exception {
+        String documentId = dte.getId().toString();
+        Optional<DocumentMetadata> existing = documentoRepository.findByDocumentId(documentId);
+        if (existing.isPresent()) return existing.get();
+
+        String xml = generateXmlFromDte(dte);
+        byte[] bytes = xml.getBytes(StandardCharsets.UTF_8);
+        String key = String.format("dte/%s.xml", documentId);
+
+        DocumentMetadata metadata = new DocumentMetadata(documentId, DocumentStatus.RECEIVED);
+        metadata.setFolio(dte.getFolio() == null ? null : dte.getFolio().toString());
+        try (var input = new ByteArrayInputStream(bytes)) {
+            metadata.setObjectKey(storagePort.store(key, input, bytes.length, "application/xml"));
+            metadata.setStatus(DocumentStatus.STORED);
+        }
+        return documentoRepository.save(metadata);
+    }
+
+    @Override
     public DocumentMetadata getStatus(String documentId) throws Exception {
         Optional<DocumentMetadata> meta = documentoRepository.findByDocumentId(documentId);
         return meta.orElseThrow(() -> new IllegalArgumentException("Document not found"));
@@ -188,7 +207,27 @@ public class DteServiceImpl implements DteService {
 
         StringBuilder xml = new StringBuilder();
         xml.append("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>\n");
-        xml.append("<DTE xmlns=\"http://www.sii.cl/SiiDte\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" version=\"1.0\">\n");
+        xml.append("<EnvioDTE xmlns=\"http://www.sii.cl/SiiDte\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" version=\"1.0\">\n");
+        xml.append("  <SetDTE ID=\"SetDTE-").append(dte.getId()).append("\">\n");
+        xml.append("    <Caratula version=\"1.0\">\n");
+        xml.append("      <RutEmisor>").append(escapeXml(dte.getTenant() == null ? "" : dte.getTenant().getRutEmisor())).append("</RutEmisor>\n");
+        xml.append("      <RutEnvia>").append(escapeXml(dte.getRutEnvia())).append("</RutEnvia>\n");
+        xml.append("      <RutReceptor>").append(escapeXml(dte.getRutRecep())).append("</RutReceptor>\n");
+        String fchResol = dte.getTenant() == null || dte.getTenant().getFchResol() == null
+                ? fchEmisStr
+                : dte.getTenant().getFchResol().toString();
+        Integer nroResol = dte.getTenant() == null || dte.getTenant().getNroResol() == null
+                ? 0
+                : dte.getTenant().getNroResol();
+        xml.append("      <FchResol>").append(escapeXml(fchResol)).append("</FchResol>\n");
+        xml.append("      <NroResol>").append(nroResol).append("</NroResol>\n");
+        xml.append("      <TmstFirmaEnv>").append(escapeXml(fchEmisStr)).append("T00:00:00</TmstFirmaEnv>\n");
+        xml.append("      <SubTotDTE>\n");
+        xml.append("        <TpoDTE>").append(nullSafe(dte.getTipoDte())).append("</TpoDTE>\n");
+        xml.append("        <NroDTE>1</NroDTE>\n");
+        xml.append("      </SubTotDTE>\n");
+        xml.append("    </Caratula>\n");
+        xml.append("    <DTE version=\"1.0\">\n");
         xml.append("  <Documento ID=\"DTE-").append(nullSafe(dte.getFolio())).append("\">\n");
         xml.append("    <Encabezado>\n");
         xml.append("      <IdDoc>\n");
@@ -207,7 +246,7 @@ public class DteServiceImpl implements DteService {
         xml.append("      <Receptor>\n");
         xml.append("        <RUTRecep>").append(escapeXml(dte.getRutRecep())).append("</RUTRecep>\n");
         xml.append("        <RznSocRecep>").append(escapeXml(dte.getRznSocRecep())).append("</RznSocRecep>\n");
-        xml.append("        <GiroRecep>").append(escapeXml(dte.getReceptor() == null ? "" : dte.getReceptor().getGiro())).append("</GiroRecep>\n");
+        xml.append("        <GiroRecep>").append(escapeXml(dte.getGiroRecep())).append("</GiroRecep>\n");
         xml.append("        <DirRecep>").append(escapeXml(dte.getDirRecep() != null ? dte.getDirRecep() : (dte.getReceptor() == null ? "" : dte.getReceptor().getDireccion()))).append("</DirRecep>\n");
         xml.append("        <CmnaRecep>").append(escapeXml(dte.getCmnaRecep() != null ? dte.getCmnaRecep() : (dte.getReceptor() == null ? "" : dte.getReceptor().getComuna()))).append("</CmnaRecep>\n");
         xml.append("      </Receptor>\n");
@@ -275,7 +314,9 @@ public class DteServiceImpl implements DteService {
         xml.append("    </TED>\n");
         xml.append("    <TmstFirma>").append(escapeXml(fchEmisStr)).append("T00:00:00</TmstFirma>\n");
         xml.append("  </Documento>\n");
-        xml.append("</DTE>\n");
+        xml.append("    </DTE>\n");
+        xml.append("  </SetDTE>\n");
+        xml.append("</EnvioDTE>\n");
 
         return xml.toString();
     }

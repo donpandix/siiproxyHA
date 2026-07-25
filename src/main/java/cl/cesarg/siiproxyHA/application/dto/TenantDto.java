@@ -3,6 +3,7 @@ package cl.cesarg.siiproxyHA.application.dto;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.time.LocalDate;
 
 public class TenantDto {
     private UUID id;
@@ -15,6 +16,8 @@ public class TenantDto {
     private String comuna;
     private String ciudad;
     private String email;
+    private LocalDate fchResol;
+    private Integer nroResol;
     private boolean active = true;
     private List<ReceptorDto> receptores = new ArrayList<>();
 
@@ -38,6 +41,10 @@ public class TenantDto {
     public void setCiudad(String ciudad) { this.ciudad = ciudad; }
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
+    public LocalDate getFchResol() { return fchResol; }
+    public void setFchResol(LocalDate fchResol) { this.fchResol = fchResol; }
+    public Integer getNroResol() { return nroResol; }
+    public void setNroResol(Integer nroResol) { this.nroResol = nroResol; }
     public boolean isActive() { return active; }
     public void setActive(boolean active) { this.active = active; }
     public List<ReceptorDto> getReceptores() { return receptores; }

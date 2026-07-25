@@ -48,7 +48,12 @@
     },
     {
       "key": "rutUsuario",
-      "value": "12345678-9",
+      "value": "10438332-7",
+      "enabled": true
+    },
+    {
+      "key": "rutEnvia",
+      "value": "10438332-7",
       "enabled": true
     },
     {

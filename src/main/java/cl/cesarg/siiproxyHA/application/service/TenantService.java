@@ -40,6 +40,8 @@ public class TenantService {
         t.setComuna(dto.getComuna());
         t.setCiudad(dto.getCiudad());
         t.setEmail(dto.getEmail());
+        t.setFchResol(dto.getFchResol());
+        t.setNroResol(dto.getNroResol());
         t.setActive(dto.isActive());
         t.setCreatedAt(Instant.now());
 
@@ -81,6 +83,8 @@ public class TenantService {
             existing.setComuna(dto.getComuna());
             existing.setCiudad(dto.getCiudad());
             existing.setEmail(dto.getEmail());
+            existing.setFchResol(dto.getFchResol());
+            existing.setNroResol(dto.getNroResol());
             existing.setActive(dto.isActive());
 
             // replace receptors if provided

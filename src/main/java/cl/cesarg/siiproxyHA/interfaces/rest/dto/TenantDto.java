@@ -2,6 +2,7 @@ package cl.cesarg.siiproxyHA.interfaces.rest.dto;
 
 import cl.cesarg.siiproxyHA.domain.model.Tenant;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 
 public class TenantDto {
@@ -16,6 +17,8 @@ public class TenantDto {
     public String comuna;
     public String ciudad;
     public String email;
+    public LocalDate fchResol;
+    public Integer nroResol;
     public Instant createdAt;
 
     public static TenantDto fromEntity(Tenant t) {
@@ -31,6 +34,8 @@ public class TenantDto {
         dto.comuna = t.getComuna();
         dto.ciudad = t.getCiudad();
         dto.email = t.getEmail();
+        dto.fchResol = t.getFchResol();
+        dto.nroResol = t.getNroResol();
         dto.createdAt = t.getCreatedAt();
         return dto;
     }

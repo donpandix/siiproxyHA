@@ -27,6 +27,9 @@ public class Dte {
     @Column(name = "folio", nullable = false)
     private Long folio;
 
+    @Column(name = "rut_envia", length = 12)
+    private String rutEnvia;
+
     @Column(name = "fch_emis", nullable = false)
     private LocalDate fchEmis;
 
@@ -39,6 +42,10 @@ public class Dte {
     private String rutRecep;
     @Column(name = "rzn_soc_recep", length = 100)
     private String rznSocRecep;
+    @Column(name = "giro_recep", length = 40)
+    private String giroRecep;
+    @Column(name = "telefono_recep", length = 20)
+    private String telefonoRecep;
     @Column(name = "dir_recep", length = 70)
     private String dirRecep;
     @Column(name = "cmna_recep", length = 20)
@@ -96,6 +103,8 @@ public class Dte {
     public void setTipoDte(Integer tipoDte) { this.tipoDte = tipoDte; }
     public Long getFolio() { return folio; }
     public void setFolio(Long folio) { this.folio = folio; }
+    public String getRutEnvia() { return rutEnvia; }
+    public void setRutEnvia(String rutEnvia) { this.rutEnvia = rutEnvia; }
     public LocalDate getFchEmis() { return fchEmis; }
     public void setFchEmis(LocalDate fchEmis) { this.fchEmis = fchEmis; }
     public Receptor getReceptor() { return receptor; }
@@ -104,6 +113,10 @@ public class Dte {
     public void setRutRecep(String rutRecep) { this.rutRecep = rutRecep; }
     public String getRznSocRecep() { return rznSocRecep; }
     public void setRznSocRecep(String rznSocRecep) { this.rznSocRecep = rznSocRecep; }
+    public String getGiroRecep() { return giroRecep; }
+    public void setGiroRecep(String giroRecep) { this.giroRecep = giroRecep; }
+    public String getTelefonoRecep() { return telefonoRecep; }
+    public void setTelefonoRecep(String telefonoRecep) { this.telefonoRecep = telefonoRecep; }
     public String getDirRecep() { return dirRecep; }
     public void setDirRecep(String dirRecep) { this.dirRecep = dirRecep; }
     public String getCmnaRecep() { return cmnaRecep; }

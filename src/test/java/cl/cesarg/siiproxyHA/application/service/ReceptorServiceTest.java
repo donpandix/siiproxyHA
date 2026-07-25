@@ -66,4 +66,40 @@ class ReceptorServiceTest {
         assertTrue(ex.getMessage().contains("already exists"));
         verify(receptorRepository, never()).save(any());
     }
+
+    @Test
+    void upsert_updatesExistingReceptorWithoutChangingItsIdentity() {
+        UUID tenantId = UUID.randomUUID();
+        UUID receptorId = UUID.randomUUID();
+        Tenant tenant = new Tenant();
+        tenant.setId(tenantId);
+
+        Receptor existing = new Receptor();
+        existing.setId(receptorId);
+        existing.setTenant(tenant);
+        existing.setRutReceptor("60803000-K");
+        existing.setRazonSocial("Anterior");
+
+        ReceptorDto dto = new ReceptorDto();
+        dto.setRutReceptor("60.803.000-k");
+        dto.setRazonSocial("Actualizada");
+        dto.setGiro("SERVICIO PUBLICO");
+        dto.setEmail("contacto@sii.cl");
+        dto.setTelefono("223951000");
+        dto.setDireccion("TEATINOS 120");
+        dto.setComuna("SANTIAGO");
+        dto.setCiudad("SANTIAGO");
+
+        when(tenantRepository.findById(tenantId)).thenReturn(Optional.of(tenant));
+        when(receptorRepository.findByTenantIdAndRutReceptor(tenantId, "60803000-K"))
+                .thenReturn(Optional.of(existing));
+        when(receptorRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Receptor result = receptorService.upsert(tenantId, dto);
+
+        assertEquals(receptorId, result.getId());
+        assertEquals("Actualizada", result.getRazonSocial());
+        assertEquals("60803000-K", result.getRutReceptor());
+        assertSame(tenant, result.getTenant());
+    }
 }

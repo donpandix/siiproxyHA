@@ -31,24 +31,16 @@ public class DteCrudService {
 
     @Transactional
     public Dte create(Dte dte) {
-        Dte saved = dteRepository.save(dte);
         if (dte.getItems() != null) {
-            List<DteItem> items = dte.getItems().stream().map(i -> {
-                i.setDte(saved);
-                return i;
-            }).collect(Collectors.toList());
-            dteItemRepository.saveAll(items);
-            saved.setItems(items);
+            dte.getItems().forEach(item -> item.setDte(dte));
         }
         if (dte.getReferences() != null) {
-            List<DteReference> refs = dte.getReferences().stream().map(r -> {
-                r.setDte(saved);
-                return r;
-            }).collect(Collectors.toList());
-            dteReferenceRepository.saveAll(refs);
-            saved.setReferences(refs);
+            dte.getReferences().forEach(reference -> reference.setDte(dte));
         }
-        return saved;
+
+        // Dte owns cascade persistence for items and references. Persist and flush once so
+        // constraint violations are raised here instead of being duplicated by saveAll calls.
+        return dteRepository.saveAndFlush(dte);
     }
 
     public Optional<Dte> findById(UUID id) {

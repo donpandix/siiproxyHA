@@ -4,7 +4,7 @@ Import the collection at documents/postman/siiproxyha-collection.json into Postm
 
 Environment variables available in documents/postman/siiproxyha-environment.json:
 - `baseUrl` (e.g. http://localhost:8080)
-- `tenantId`, `receptorId`, `cafId`
+- `tenantId`, `receptorId`, `cafId`, `rutEnvia`
 
 Quick curl examples:
 
@@ -58,9 +58,12 @@ Pasos rápidos:
 2. Ejecutar la aplicación: `./mvnw spring-boot:run`.
 3. Importar el environment y seleccionar `siiproxyHA Local`.
 4. Importar la colección y ejecutar `POST Ingest DTE`.
+   - Antes de ingresar el DTE, el tenant debe tener `fchResol` y `nroResol` y debe existir un certificado activo cuyo `rutUsuario` corresponda a `{{rutEnvia}}`.
+   - El receptor se informa completo en el body: se actualiza por `(tenantId, rutReceptor)` si existe o se crea si es nuevo.
+   - Los detalles de `items` no requieren un producto previamente registrado; el servidor genera el identificador interno de cada línea.
    - La colección guardará el `documentId` (o `id`) en la variable `documentId` del environment si la respuesta contiene el campo.
 5. Ejecutar `GET Document Status` y `GET Document XML (presigned)` usando la variable `{{documentId}}`.
 
 Notas:
-- `GET /api/v1/dte/{id}/status` y `GET /api/v1/dte/{id}/xml` deben estar implementados en la app para funcionar.
-- El `POST` en la colección es idempotente si se reenvía con el mismo `documentId`.
+- `rutEmisor` y los demás datos del emisor siempre se leen desde el tenant registrado; `POST /api/v1/dte` no los modifica.
+- `POST /api/v1/dte` almacena el `EnvioDTE` y responde metadatos con estado `STORED`.

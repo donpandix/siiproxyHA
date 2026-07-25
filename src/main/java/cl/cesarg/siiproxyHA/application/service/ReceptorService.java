@@ -2,6 +2,7 @@ package cl.cesarg.siiproxyHA.application.service;
 
 import cl.cesarg.siiproxyHA.application.dto.ReceptorDto;
 import cl.cesarg.siiproxyHA.domain.model.Receptor;
+import cl.cesarg.siiproxyHA.domain.model.RutUtils;
 import cl.cesarg.siiproxyHA.domain.model.Tenant;
 import cl.cesarg.siiproxyHA.infrastructure.persistence.ReceptorRepository;
 import cl.cesarg.siiproxyHA.infrastructure.persistence.TenantRepository;
@@ -29,6 +30,7 @@ public class ReceptorService {
         Tenant tenant = tenantRepository.findById(tenantId).orElseThrow(() -> new IllegalArgumentException("tenant not found"));
         // validate unique rut per tenant when provided
         if (dto.getRutReceptor() != null && !dto.getRutReceptor().isBlank()) {
+            dto.setRutReceptor(RutUtils.normalizeAndValidate(dto.getRutReceptor(), "rutReceptor"));
             if (receptorRepository.existsByTenantIdAndRutReceptor(tenantId, dto.getRutReceptor())) {
                 throw new IllegalArgumentException("Receptor with same RUT already exists for tenant");
             }
@@ -49,6 +51,40 @@ public class ReceptorService {
         return receptorRepository.save(r);
     }
 
+    @Transactional
+    public Receptor upsert(UUID tenantId, ReceptorDto dto) {
+        Tenant tenant = tenantRepository.findById(tenantId)
+                .orElseThrow(() -> new IllegalArgumentException("tenant not found"));
+        String rutReceptor = RutUtils.normalizeAndValidate(dto.getRutReceptor(), "rutReceptor");
+
+        Optional<Receptor> exactMatch = receptorRepository.findByTenantIdAndRutReceptor(tenantId, rutReceptor);
+        Optional<Receptor> normalizedLegacyMatch = exactMatch.isPresent()
+                ? exactMatch
+                : receptorRepository.findByTenantId(tenantId).stream()
+                        .filter(existing -> rutReceptor.equals(RutUtils.normalize(existing.getRutReceptor())))
+                        .findFirst();
+
+        Receptor receptor = normalizedLegacyMatch
+                .orElseGet(() -> {
+                    Receptor created = new Receptor();
+                    created.setId(UUID.randomUUID());
+                    created.setTenant(tenant);
+                    created.setRutReceptor(rutReceptor);
+                    created.setCreatedAt(Instant.now());
+                    return created;
+                });
+
+        receptor.setRutReceptor(rutReceptor);
+        receptor.setRazonSocial(dto.getRazonSocial());
+        receptor.setGiro(dto.getGiro());
+        receptor.setEmail(dto.getEmail());
+        receptor.setTelefono(dto.getTelefono());
+        receptor.setDireccion(dto.getDireccion());
+        receptor.setComuna(dto.getComuna());
+        receptor.setCiudad(dto.getCiudad());
+        return receptorRepository.save(receptor);
+    }
+
     public List<Receptor> listByTenant(UUID tenantId) {
         return receptorRepository.findByTenantId(tenantId);
     }
@@ -59,6 +95,9 @@ public class ReceptorService {
     public Optional<Receptor> update(UUID id, ReceptorDto dto) {
         return receptorRepository.findById(id).map(existing -> {
             // if updating rut, ensure uniqueness within tenant
+            if (dto.getRutReceptor() != null && !dto.getRutReceptor().isBlank()) {
+                dto.setRutReceptor(RutUtils.normalizeAndValidate(dto.getRutReceptor(), "rutReceptor"));
+            }
             if (dto.getRutReceptor() != null && !dto.getRutReceptor().isBlank()
                     && !dto.getRutReceptor().equals(existing.getRutReceptor())) {
                 UUID tenantId = existing.getTenant().getId();

@@ -3,6 +3,7 @@ package cl.cesarg.siiproxyHA.domain.model;
 import jakarta.persistence.*;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -40,6 +41,12 @@ public class Tenant {
 
     @Column(name = "email", length = 80)
     private String email;
+
+    @Column(name = "fch_resol")
+    private LocalDate fchResol;
+
+    @Column(name = "nro_resol")
+    private Integer nroResol;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
@@ -79,4 +86,8 @@ public class Tenant {
     public void setCiudad(String ciudad) { this.ciudad = ciudad; }
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
+    public LocalDate getFchResol() { return fchResol; }
+    public void setFchResol(LocalDate fchResol) { this.fchResol = fchResol; }
+    public Integer getNroResol() { return nroResol; }
+    public void setNroResol(Integer nroResol) { this.nroResol = nroResol; }
 }

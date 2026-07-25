@@ -1,6 +1,8 @@
 package cl.cesarg.siiproxyHA.application.service;
 
-import cl.cesarg.siiproxyHA.domain.port.StoragePort;
+import cl.cesarg.siiproxyHA.domain.port.CertificateStoragePort;
+import cl.cesarg.siiproxyHA.domain.model.RutUtils;
+import cl.cesarg.siiproxyHA.application.exception.ResourceNotFoundException;
 import cl.cesarg.siiproxyHA.infrastructure.persistence.UserCertificateEntity;
 import cl.cesarg.siiproxyHA.infrastructure.persistence.UserCertificateRepository;
 import cl.cesarg.siiproxyHA.infrastructure.persistence.TenantRepository;
@@ -16,13 +18,15 @@ import java.security.cert.X509Certificate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Set;
+import java.util.Comparator;
 import java.util.UUID;
 
 @Service
 public class UserCertificateService {
 
-    private final StoragePort storage;
+    private final CertificateStoragePort storage;
     private final UserCertificateRepository repository;
     private final CryptoService cryptoService;
     private final TenantRepository tenantRepository;
@@ -32,7 +36,7 @@ public class UserCertificateService {
 
     private static final Set<String> ALLOWED_EXT = Set.of(".p12", ".pfx", ".pem", ".crt", ".cer");
 
-    public UserCertificateService(StoragePort storage,
+    public UserCertificateService(CertificateStoragePort storage,
                                   UserCertificateRepository repository,
                                   CryptoService cryptoService,
                                   TenantRepository tenantRepository) {
@@ -100,7 +104,13 @@ public class UserCertificateService {
         String certSerial = cert.getSerialNumber() == null ? null : cert.getSerialNumber().toString();
         String issuer = cert.getIssuerX500Principal() == null ? null : cert.getIssuerX500Principal().getName();
         String subject = cert.getSubjectX500Principal() == null ? null : cert.getSubjectX500Principal().getName();
-        String subjectRut = cl.cesarg.siiproxyHA.infrastructure.security.CertUtils.extractRutFromSubject(subject);
+        String subjectRut = cl.cesarg.siiproxyHA.infrastructure.security.CertUtils
+                .extractRutFromPrincipal(cert.getSubjectX500Principal());
+        String normalizedRutUsuario = RutUtils.normalizeAndValidate(rutUsuario, "rutUsuario");
+        String normalizedSubjectRut = RutUtils.normalizeAndValidate(subjectRut, "certSubjectRut");
+        if (!normalizedRutUsuario.equals(normalizedSubjectRut)) {
+            throw new IllegalArgumentException("rutUsuario does not match certificate subject RUT");
+        }
 
         // encrypt password if present
         String encryptedPassword;
@@ -124,7 +134,7 @@ public class UserCertificateService {
         UserCertificateEntity entity = new UserCertificateEntity();
         entity.setId(id);
         entity.setTenantId(tenantId);
-        entity.setRutUsuario(rutUsuario);
+        entity.setRutUsuario(normalizedRutUsuario);
         entity.setNombreUsuario(nombreUsuario);
         entity.setCertificatePath(key);
         entity.setCertificateHash(hashHex);
@@ -134,7 +144,7 @@ public class UserCertificateService {
         entity.setCertSerialNumber(certSerial);
         entity.setCertIssuer(issuer);
         entity.setCertSubject(subject);
-        entity.setCertSubjectRut(subjectRut);
+        entity.setCertSubjectRut(normalizedSubjectRut);
         entity.setValidFrom(validFrom);
         entity.setValidUntil(validUntil);
         entity.setStatus("ACTIVE");
@@ -144,5 +154,55 @@ public class UserCertificateService {
         entity.setUsageCount(0);
 
         return repository.save(entity);
+    }
+
+    public UserCertificateEntity requireActiveCertificate(UUID tenantId, String rutEnvia) {
+        String normalizedRutEnvia = RutUtils.normalizeAndValidate(rutEnvia, "rutEnvia");
+        OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
+
+        return repository.findByTenantIdAndStatus(tenantId, "ACTIVE").stream()
+                .filter(certificate -> normalizedRutEnvia.equals(RutUtils.normalize(certificate.getRutUsuario())))
+                .filter(certificate -> normalizedRutEnvia.equals(RutUtils.normalize(certificate.getCertSubjectRut())))
+                .filter(certificate -> certificate.getValidFrom() != null && !certificate.getValidFrom().isAfter(now))
+                .filter(certificate -> certificate.getValidUntil() != null && !certificate.getValidUntil().isBefore(now))
+                .sorted(Comparator.comparing(UserCertificateEntity::isDefault).reversed())
+                .findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "rutEnvia is not registered with an active certificate for tenant"));
+    }
+
+    public List<UserCertificateEntity> listCertificates(UUID tenantId) {
+        requireTenant(tenantId);
+
+        return repository.findByTenantIdOrderByCreatedAtDesc(tenantId);
+    }
+
+    public UserCertificateEntity getCertificate(UUID tenantId, UUID certificateId) {
+        requireTenant(tenantId);
+        return findCertificate(tenantId, certificateId);
+    }
+
+    public void deleteCertificate(UUID tenantId, UUID certificateId) {
+        requireTenant(tenantId);
+        UserCertificateEntity certificate = findCertificate(tenantId, certificateId);
+
+        // Keep the database record intact when object storage cannot complete the deletion.
+        storage.delete(certificate.getCertificatePath());
+        repository.delete(certificate);
+        repository.flush();
+    }
+
+    private UserCertificateEntity findCertificate(UUID tenantId, UUID certificateId) {
+        if (certificateId == null) {
+            throw new ResourceNotFoundException("Certificate not found for tenant");
+        }
+        return repository.findByIdAndTenantId(certificateId, tenantId)
+                .orElseThrow(() -> new ResourceNotFoundException("Certificate not found for tenant"));
+    }
+
+    private void requireTenant(UUID tenantId) {
+        if (tenantId == null || !tenantRepository.existsById(tenantId)) {
+            throw new ResourceNotFoundException("Tenant not found: " + tenantId);
+        }
     }
 }

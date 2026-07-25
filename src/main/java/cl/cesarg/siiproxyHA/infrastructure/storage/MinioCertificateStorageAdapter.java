@@ -1,25 +1,24 @@
 package cl.cesarg.siiproxyHA.infrastructure.storage;
 
 import cl.cesarg.siiproxyHA.application.exception.ObjectStorageException;
-import cl.cesarg.siiproxyHA.domain.port.StoragePort;
+import cl.cesarg.siiproxyHA.domain.port.CertificateStoragePort;
+import io.minio.GetObjectArgs;
 import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
-import io.minio.GetObjectArgs;
-import io.minio.GetPresignedObjectUrlArgs;
-import io.minio.http.Method;
+import io.minio.RemoveObjectArgs;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.io.InputStream;
 
 @Component
-public class MinioStorageAdapter implements StoragePort {
+public class MinioCertificateStorageAdapter implements CertificateStoragePort {
 
     private final MinioClient client;
     private final String bucket;
 
-    public MinioStorageAdapter(MinioClient client,
-                               @Value("${minio.bucket}") String bucket) {
+    public MinioCertificateStorageAdapter(MinioClient client,
+                                          @Value("${minio.certificates-bucket}") String bucket) {
         this.client = client;
         this.bucket = bucket;
     }
@@ -37,35 +36,27 @@ public class MinioStorageAdapter implements StoragePort {
             );
             return key;
         } catch (Exception exception) {
-            throw new ObjectStorageException("Unable to store document in object storage", exception);
+            throw new ObjectStorageException("Unable to store certificate in object storage", exception);
         }
     }
 
     @Override
     public byte[] get(String key) {
-        try (InputStream in = client.getObject(
+        try (InputStream input = client.getObject(
                 GetObjectArgs.builder().bucket(bucket).object(key).build()
         )) {
-            return in.readAllBytes();
+            return input.readAllBytes();
         } catch (Exception exception) {
-            throw new ObjectStorageException("Unable to read document from object storage", exception);
+            throw new ObjectStorageException("Unable to read certificate from object storage", exception);
         }
     }
 
     @Override
-    public String presignedUrl(String key, int minutes) {
+    public void delete(String key) {
         try {
-            int expiry = Math.max(1, minutes) * 60;
-            return client.getPresignedObjectUrl(
-                    GetPresignedObjectUrlArgs.builder()
-                            .method(Method.GET)
-                            .bucket(bucket)
-                            .object(key)
-                            .expiry(expiry)
-                            .build()
-            );
+            client.removeObject(RemoveObjectArgs.builder().bucket(bucket).object(key).build());
         } catch (Exception exception) {
-            throw new ObjectStorageException("Unable to generate object storage URL", exception);
+            throw new ObjectStorageException("Unable to delete certificate from object storage", exception);
         }
     }
 }

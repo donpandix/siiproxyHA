@@ -44,12 +44,12 @@ No es necesario instalar Maven: el repositorio incluye Maven Wrapper (`mvnw`).
    docker compose ps
    ```
 
-5. Crea los buckets requeridos por la aplicación. Abre la consola de MinIO en [http://localhost:9001](http://localhost:9001), inicia sesión con las credenciales definidas en `.env` (`minio` / `minio123` por defecto) y crea estos buckets:
+5. La aplicación verifica y crea automáticamente los buckets configurados al iniciar:
 
    - `dte-bucket`
    - `certificates-bucket`
 
-   Si cambias `MINIO_BUCKET` o `MINIO_CERTIFICATES_BUCKET` en `.env`, utiliza esos nombres en su lugar.
+   Si cambias `MINIO_BUCKET` o `MINIO_CERTIFICATES_BUCKET` en `.env`, se crearán los nombres configurados. Las credenciales de MinIO deben tener permiso para consultar y crear buckets.
 
 6. Ejecuta la aplicación:
 
@@ -134,6 +134,5 @@ docker compose down -v
 
 - **El puerto ya está en uso:** detén el servicio que utiliza `5432`, `9000`, `9001`, `4566` o `8080`, o cambia el mapeo correspondiente.
 - **La aplicación no conecta a PostgreSQL o MinIO:** confirma que Docker Desktop esté iniciado, ejecuta `docker compose ps` y revisa que `.env` exista en la raíz del proyecto.
-- **MinIO responde que el bucket no existe:** crea los dos buckets indicados en la sección de instalación.
+- **La aplicación no puede inicializar un bucket de MinIO:** revisa que los nombres configurados sean válidos y que las credenciales tengan permisos para consultar y crear buckets. Como alternativa operativa, créalos manualmente desde [http://localhost:9001](http://localhost:9001).
 - **Java usa una versión incorrecta:** configura `JAVA_HOME` para que apunte a una instalación de Java 21.
-

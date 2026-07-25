@@ -14,10 +14,17 @@ public class DteDto {
     public TenantDto tenant;
     public Integer tipoDte;
     public Long folio;
+    public String rutEnvia;
     public LocalDate fchEmis;
     public UUID receptorId;
     public String rutRecep;
     public String rznSocRecep;
+    public String giroRecep;
+    public String telefonoRecep;
+    public String dirRecep;
+    public String cmnaRecep;
+    public String ciudadRecep;
+    public String correoRecep;
     public ReceptorDto receptor;
     public List<DteReferenceDto> references;
     public List<DteItemDto> items;
@@ -39,6 +46,7 @@ public class DteDto {
         } catch (Exception ignored) {}
         dto.tipoDte = dte.getTipoDte();
         dto.folio = dte.getFolio();
+        dto.rutEnvia = dte.getRutEnvia();
         dto.fchEmis = dte.getFchEmis();
         try {
             if (dte.getReceptor() != null) {
@@ -48,6 +56,12 @@ public class DteDto {
         } catch (Exception ignored) {}
         dto.rutRecep = dte.getRutRecep();
         dto.rznSocRecep = dte.getRznSocRecep();
+        dto.giroRecep = dte.getGiroRecep();
+        dto.telefonoRecep = dte.getTelefonoRecep();
+        dto.dirRecep = dte.getDirRecep();
+        dto.cmnaRecep = dte.getCmnaRecep();
+        dto.ciudadRecep = dte.getCiudadRecep();
+        dto.correoRecep = dte.getCorreoRecep();
         dto.mntNeto = dte.getMntNeto();
         dto.iva = dte.getIva();
         dto.mntTotal = dte.getMntTotal();
