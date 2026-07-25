@@ -140,7 +140,48 @@ class DomXmlSignerAdapterTest {
     }
 
     @Test
-    void rejectsSetDteTargetUntilEnvelopeStep() throws Exception {
+    void signsSetDteAfterDocumentoAndPreservesBothSignatures() throws Exception {
+        Fixture fixture = fixture();
+        DomXmlSignerAdapter signer = signer();
+        XmlSignerPort.SignedXml signedDocument =
+                signer.sign(request(unsignedXml(), fixture.descriptor()));
+
+        XmlSignerPort.SignedXml signedEnvelope = signer.sign(new XmlSignerPort.SigningRequest(
+                signedDocument.xml(),
+                "SetDTE-test",
+                XmlSignerPort.SignatureTarget.SET_DTE,
+                fixture.descriptor(),
+                XmlSignerPort.SignatureProfile.SII_LEGACY_RSA_SHA1
+        ));
+
+        Document document = parse(signedEnvelope.xml());
+        Element setDte = (Element) document
+                .getElementsByTagNameNS(DomDteXmlBuilderAdapter.SII_NAMESPACE, "SetDTE")
+                .item(0);
+        Element envelopeSignature = nextElement(setDte);
+        assertEquals("#SetDTE-test", signedEnvelope.referenceUri());
+        assertEquals(XmlSignerPort.SignatureTarget.SET_DTE, signedEnvelope.target());
+        assertEquals(DSIG_NAMESPACE, envelopeSignature.getNamespaceURI());
+        assertEquals("Signature", envelopeSignature.getLocalName());
+        assertEquals(2, document.getElementsByTagNameNS(DSIG_NAMESPACE, "Signature").getLength());
+        assertEquals(
+                "#DTE-105",
+                ((Element) document.getElementsByTagNameNS(
+                        DSIG_NAMESPACE,
+                        "Reference"
+                ).item(0)).getAttribute("URI")
+        );
+        assertEquals(
+                "#SetDTE-test",
+                ((Element) document.getElementsByTagNameNS(
+                        DSIG_NAMESPACE,
+                        "Reference"
+                ).item(1)).getAttribute("URI")
+        );
+    }
+
+    @Test
+    void rejectsSetDteWithoutSignedDocumento() throws Exception {
         Fixture fixture = fixture();
         XmlSignerPort.SigningRequest request = new XmlSignerPort.SigningRequest(
                 unsignedXml(),
@@ -156,7 +197,36 @@ class DomXmlSignerAdapterTest {
         );
 
         assertEquals(
-                XmlSignerPort.XmlSigningFailureReason.UNSUPPORTED_TARGET,
+                XmlSignerPort.XmlSigningFailureReason.INVALID_STRUCTURE,
+                exception.getReason()
+        );
+    }
+
+    @Test
+    void rejectsSetDteWhenDocumentoSignatureWasAltered() throws Exception {
+        Fixture fixture = fixture();
+        DomXmlSignerAdapter signer = signer();
+        XmlSignerPort.SignedXml signedDocument =
+                signer.sign(request(unsignedXml(), fixture.descriptor()));
+        String tampered = new String(
+                signedDocument.xml(),
+                StandardCharsets.ISO_8859_1
+        ).replace("Piñón &amp; engranaje", "Piñón &amp; engranaje alterado");
+        XmlSignerPort.SigningRequest request = new XmlSignerPort.SigningRequest(
+                tampered.getBytes(StandardCharsets.ISO_8859_1),
+                "SetDTE-test",
+                XmlSignerPort.SignatureTarget.SET_DTE,
+                fixture.descriptor(),
+                XmlSignerPort.SignatureProfile.SII_LEGACY_RSA_SHA1
+        );
+
+        XmlSignerPort.XmlSigningException exception = assertThrows(
+                XmlSignerPort.XmlSigningException.class,
+                () -> signer.sign(request)
+        );
+
+        assertEquals(
+                XmlSignerPort.XmlSigningFailureReason.SIGNATURE_INVALID,
                 exception.getReason()
         );
     }

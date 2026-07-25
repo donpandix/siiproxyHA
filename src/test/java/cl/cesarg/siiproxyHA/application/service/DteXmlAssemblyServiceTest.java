@@ -35,13 +35,13 @@ class DteXmlAssemblyServiceTest {
     @Mock
     private DteXmlBuilderPort xmlBuilder;
     @Mock
-    private DteDocumentSigningService documentSigning;
+    private DteXmlSigningService xmlSigning;
 
     private DteXmlAssemblyService service;
 
     @BeforeEach
     void setUp() {
-        service = new DteXmlAssemblyService(tedGenerator, xmlBuilder, documentSigning);
+        service = new DteXmlAssemblyService(tedGenerator, xmlBuilder, xmlSigning);
     }
 
     @Test
@@ -68,14 +68,14 @@ class DteXmlAssemblyServiceTest {
                 ArgumentCaptor.forClass(DteXmlBuilderPort.BuildRequest.class);
         when(tedGenerator.generate(tedCaptor.capture())).thenReturn(ted);
         when(xmlBuilder.build(buildCaptor.capture())).thenReturn(expected);
-        when(documentSigning.sign(
+        when(xmlSigning.signAll(
                 expected,
                 dte.getTenant().getId(),
                 dte.getRutEnvia()
         )).thenReturn(new XmlSignerPort.SignedXml(
                 expected.xml(),
-                "#" + expected.documentoId(),
-                XmlSignerPort.SignatureTarget.DOCUMENTO,
+                "#" + expected.setDteId(),
+                XmlSignerPort.SignatureTarget.SET_DTE,
                 UUID.randomUUID(),
                 XmlSignerPort.SignatureProfile.SII_LEGACY_RSA_SHA1
         ));
@@ -93,7 +93,7 @@ class DteXmlAssemblyServiceTest {
         assertEquals("Producto principal", buildCaptor.getValue().items().getFirst().name());
         verify(tedGenerator).generate(tedCaptor.getValue());
         verify(xmlBuilder).build(buildCaptor.getValue());
-        verify(documentSigning).sign(
+        verify(xmlSigning).signAll(
                 expected,
                 dte.getTenant().getId(),
                 dte.getRutEnvia()

@@ -66,22 +66,17 @@ public class DomXmlSignerAdapter implements XmlSignerPort {
     @Override
     public SignedXml sign(SigningRequest request) {
         Objects.requireNonNull(request, "request is required");
-        if (request.target() != SignatureTarget.DOCUMENTO) {
-            throw failure(
-                    XmlSigningFailureReason.UNSUPPORTED_TARGET,
-                    "Only Documento signing is implemented"
-            );
-        }
 
         byte[] input = request.xml();
         byte[] originalDd = extractDd(input);
         try {
-            preflight(input, request.referenceId());
+            preflight(input, request.referenceId(), request.target());
             byte[] signed = credentialResolver.withCredential(
                     request.credential(),
                     (privateKey, certificate) -> signAndValidate(
                             input,
                             request.referenceId(),
+                            request.target(),
                             privateKey,
                             certificate,
                             originalDd
@@ -101,7 +96,7 @@ public class DomXmlSignerAdapter implements XmlSignerPort {
         } catch (Exception exception) {
             throw new XmlSigningException(
                     XmlSigningFailureReason.SIGNING_FAILURE,
-                    "Unable to sign Documento XML",
+                    "Unable to sign DTE XML",
                     exception
             );
         } finally {
@@ -110,12 +105,20 @@ public class DomXmlSignerAdapter implements XmlSignerPort {
         }
     }
 
-    private void preflight(byte[] xml, String referenceId) {
+    private void preflight(
+            byte[] xml,
+            String referenceId,
+            SignatureTarget target
+    ) {
         try {
             Document document = parse(xml);
-            Element documento = requireDocumento(document, referenceId);
-            Element dte = requireParent(documento, "DTE");
-            requireNoSignature(dte);
+            TargetNodes nodes = requireTarget(document, referenceId, target);
+            requireNoSignature(nodes.parent(), target);
+            if (target == SignatureTarget.SET_DTE) {
+                requireSignedDocumentos(document, nodes.target());
+            } else {
+                requireUnsignedEnvelope(nodes.parent());
+            }
         } catch (XmlSigningException exception) {
             throw exception;
         } catch (Exception exception) {
@@ -130,16 +133,21 @@ public class DomXmlSignerAdapter implements XmlSignerPort {
     private byte[] signAndValidate(
             byte[] xml,
             String referenceId,
+            SignatureTarget target,
             java.security.PrivateKey privateKey,
             X509Certificate certificate,
             byte[] originalDd
     ) {
         try {
             Document document = parse(xml);
-            Element documento = requireDocumento(document, referenceId);
-            Element dte = requireParent(documento, "DTE");
-            requireNoSignature(dte);
-            documento.setIdAttribute("ID", true);
+            TargetNodes nodes = requireTarget(document, referenceId, target);
+            requireNoSignature(nodes.parent(), target);
+            if (target == SignatureTarget.SET_DTE) {
+                validateDocumentSignatures(document, nodes.target(), certificate);
+            } else {
+                requireUnsignedEnvelope(nodes.parent());
+            }
+            nodes.target().setIdAttribute("ID", true);
 
             XMLSignatureFactory factory = XMLSignatureFactory.getInstance("DOM");
             String referenceUri = "#" + referenceId;
@@ -164,16 +172,16 @@ public class DomXmlSignerAdapter implements XmlSignerPort {
             KeyInfo keyInfo = keyInfo(factory.getKeyInfoFactory(), certificate);
             XMLSignature signature = factory.newXMLSignature(signedInfo, keyInfo);
 
-            Node nextSibling = documento.getNextSibling();
+            Node nextSibling = nodes.target().getNextSibling();
             DOMSignContext context = nextSibling == null
-                    ? new DOMSignContext(privateKey, dte)
-                    : new DOMSignContext(privateKey, dte, nextSibling);
+                    ? new DOMSignContext(privateKey, nodes.parent())
+                    : new DOMSignContext(privateKey, nodes.parent(), nextSibling);
             restrictDereferencing(factory, context, referenceUri);
             signature.sign(context);
 
             byte[] output = serialize(document);
             verifyDd(output, originalDd);
-            validateSerialized(output, referenceId, certificate);
+            validateSerialized(output, referenceId, target, certificate);
             return output;
         } catch (XmlSigningException exception) {
             throw exception;
@@ -204,39 +212,73 @@ public class DomXmlSignerAdapter implements XmlSignerPort {
     private void validateSerialized(
             byte[] xml,
             String referenceId,
+            SignatureTarget target,
             X509Certificate certificate
     ) throws Exception {
         Document document = parse(xml);
-        Element documento = requireDocumento(document, referenceId);
-        Element dte = requireParent(documento, "DTE");
-        List<Element> signatures = directChildren(dte, XMLDSIG_NAMESPACE, "Signature");
-        if (signatures.size() != 1 || nextElement(documento) != signatures.getFirst()) {
+        TargetNodes nodes = requireTarget(document, referenceId, target);
+        List<Element> signatures = directChildren(
+                nodes.parent(),
+                XMLDSIG_NAMESPACE,
+                "Signature"
+        );
+        if (signatures.size() != 1
+                || nextElement(nodes.target()) != signatures.getFirst()) {
             throw failure(
                     XmlSigningFailureReason.INVALID_STRUCTURE,
-                    "Documento Signature must be its immediate element sibling"
+                    target + " Signature must be its immediate element sibling"
             );
         }
-        documento.setIdAttribute("ID", true);
+        if (target == SignatureTarget.SET_DTE) {
+            validateDocumentSignatures(document, nodes.target(), certificate);
+        }
+        validateSignature(
+                nodes.target(),
+                signatures.getFirst(),
+                "#" + referenceId,
+                certificate
+        );
+    }
 
+    private void validateSignature(
+            Element signedElement,
+            Element signatureElement,
+            String expectedUri,
+            X509Certificate certificate
+    ) throws Exception {
+        signedElement.setIdAttribute("ID", true);
         XMLSignatureFactory factory = XMLSignatureFactory.getInstance("DOM");
         DOMValidateContext context = new DOMValidateContext(
                 certificate.getPublicKey(),
-                signatures.getFirst()
+                signatureElement
         );
         context.setProperty(SECURE_VALIDATION_PROPERTY, Boolean.FALSE);
-        String expectedUri = "#" + referenceId;
         restrictDereferencing(factory, context, expectedUri);
         XMLSignature signature = factory.unmarshalXMLSignature(context);
-        if (signature.getSignedInfo().getReferences().size() != 1
-                || !expectedUri.equals(
-                        ((Reference) signature.getSignedInfo().getReferences().getFirst()).getURI()
-                )
-                || !signature.validate(context)) {
+        if (!usesLegacyProfile(signature, expectedUri) || !signature.validate(context)) {
             throw failure(
                     XmlSigningFailureReason.SIGNATURE_INVALID,
-                    "Serialized Documento signature is invalid"
+                    "Serialized XML signature is invalid"
             );
         }
+    }
+
+    private boolean usesLegacyProfile(XMLSignature signature, String expectedUri) {
+        if (!CanonicalizationMethod.INCLUSIVE.equals(
+                signature.getSignedInfo().getCanonicalizationMethod().getAlgorithm()
+        ) || !SignatureMethod.RSA_SHA1.equals(
+                signature.getSignedInfo().getSignatureMethod().getAlgorithm()
+        ) || signature.getSignedInfo().getReferences().size() != 1) {
+            return false;
+        }
+        Reference reference =
+                (Reference) signature.getSignedInfo().getReferences().getFirst();
+        return expectedUri.equals(reference.getURI())
+                && DigestMethod.SHA1.equals(reference.getDigestMethod().getAlgorithm())
+                && reference.getTransforms().size() == 1
+                && CanonicalizationMethod.INCLUSIVE.equals(
+                        ((Transform) reference.getTransforms().getFirst()).getAlgorithm()
+                );
     }
 
     private void restrictDereferencing(
@@ -253,9 +295,28 @@ public class DomXmlSignerAdapter implements XmlSignerPort {
         });
     }
 
-    private Element requireDocumento(Document document, String referenceId) {
+    private TargetNodes requireTarget(
+            Document document,
+            String referenceId,
+            SignatureTarget target
+    ) {
+        String elementName = target == SignatureTarget.DOCUMENTO
+                ? "Documento"
+                : "SetDTE";
+        String parentName = target == SignatureTarget.DOCUMENTO
+                ? "DTE"
+                : "EnvioDTE";
+        Element element = requireUniqueElement(document, elementName, referenceId);
+        return new TargetNodes(element, requireParent(element, parentName));
+    }
+
+    private Element requireUniqueElement(
+            Document document,
+            String elementName,
+            String referenceId
+    ) {
         List<Element> matches = new ArrayList<>();
-        var elements = document.getElementsByTagNameNS(SII_NAMESPACE, "Documento");
+        var elements = document.getElementsByTagNameNS(SII_NAMESPACE, elementName);
         for (int index = 0; index < elements.getLength(); index++) {
             Element element = (Element) elements.item(index);
             if (referenceId.equals(element.getAttribute("ID"))) {
@@ -265,13 +326,13 @@ public class DomXmlSignerAdapter implements XmlSignerPort {
         if (matches.isEmpty()) {
             throw failure(
                     XmlSigningFailureReason.TARGET_NOT_FOUND,
-                    "Documento reference ID was not found"
+                    elementName + " reference ID was not found"
             );
         }
         if (matches.size() != 1 || countId(document, referenceId) != 1) {
             throw failure(
                     XmlSigningFailureReason.AMBIGUOUS_TARGET,
-                    "Documento reference ID must be unique"
+                    elementName + " reference ID must be unique"
             );
         }
         return matches.getFirst();
@@ -296,17 +357,87 @@ public class DomXmlSignerAdapter implements XmlSignerPort {
                 || !expectedName.equals(parentElement.getLocalName())) {
             throw failure(
                     XmlSigningFailureReason.INVALID_STRUCTURE,
-                    "Documento must be a direct child of DTE"
+                    element.getLocalName()
+                            + " must be a direct child of "
+                            + expectedName
             );
         }
         return parentElement;
     }
 
-    private void requireNoSignature(Element dte) {
-        if (!directChildren(dte, XMLDSIG_NAMESPACE, "Signature").isEmpty()) {
+    private void requireNoSignature(Element parent, SignatureTarget target) {
+        if (!directChildren(parent, XMLDSIG_NAMESPACE, "Signature").isEmpty()) {
             throw failure(
                     XmlSigningFailureReason.ALREADY_SIGNED,
-                    "Documento already has a Signature sibling"
+                    target + " already has a Signature sibling"
+            );
+        }
+    }
+
+    private void requireUnsignedEnvelope(Element dte) {
+        Element setDte = requireParent(dte, "SetDTE");
+        Element envioDte = requireParent(setDte, "EnvioDTE");
+        if (!directChildren(envioDte, XMLDSIG_NAMESPACE, "Signature").isEmpty()) {
+            throw failure(
+                    XmlSigningFailureReason.ALREADY_SIGNED,
+                    "Documento cannot be signed inside an already signed SetDTE"
+            );
+        }
+    }
+
+    private List<SignedDocumento> requireSignedDocumentos(
+            Document document,
+            Element setDte
+    ) {
+        List<Element> dtes = directChildren(setDte, SII_NAMESPACE, "DTE");
+        if (dtes.isEmpty()) {
+            throw failure(
+                    XmlSigningFailureReason.INVALID_STRUCTURE,
+                    "SetDTE must contain at least one DTE"
+            );
+        }
+
+        List<SignedDocumento> signedDocumentos = new ArrayList<>();
+        for (Element dte : dtes) {
+            List<Element> documentos = directChildren(dte, SII_NAMESPACE, "Documento");
+            List<Element> signatures =
+                    directChildren(dte, XMLDSIG_NAMESPACE, "Signature");
+            if (documentos.size() != 1
+                    || signatures.size() != 1
+                    || nextElement(documentos.getFirst()) != signatures.getFirst()) {
+                throw failure(
+                        XmlSigningFailureReason.INVALID_STRUCTURE,
+                        "Each DTE must contain one Documento followed by its Signature"
+                );
+            }
+            Element documento = documentos.getFirst();
+            String documentoId = documento.getAttribute("ID");
+            if (documentoId.isBlank() || countId(document, documentoId) != 1) {
+                throw failure(
+                        XmlSigningFailureReason.AMBIGUOUS_TARGET,
+                        "Signed Documento ID must be present and unique"
+                );
+            }
+            signedDocumentos.add(new SignedDocumento(
+                    documento,
+                    signatures.getFirst(),
+                    "#" + documentoId
+            ));
+        }
+        return signedDocumentos;
+    }
+
+    private void validateDocumentSignatures(
+            Document document,
+            Element setDte,
+            X509Certificate certificate
+    ) throws Exception {
+        for (SignedDocumento signed : requireSignedDocumentos(document, setDte)) {
+            validateSignature(
+                    signed.documento(),
+                    signed.signature(),
+                    signed.referenceUri(),
+                    certificate
             );
         }
     }
@@ -434,6 +565,16 @@ public class DomXmlSignerAdapter implements XmlSignerPort {
             String message
     ) {
         return new XmlSigningException(reason, message);
+    }
+
+    private record TargetNodes(Element target, Element parent) {
+    }
+
+    private record SignedDocumento(
+            Element documento,
+            Element signature,
+            String referenceUri
+    ) {
     }
 
     private static class ThrowingErrorHandler implements ErrorHandler {

@@ -43,13 +43,13 @@ class DteStorageXmlTest {
                 LocalDateTime.of(2026, 2, 15, 10, 30, 45),
                 cafId
         );
-        DteDocumentSigningService documentSigning = mock(DteDocumentSigningService.class);
-        when(documentSigning.sign(any(), any(), any())).thenAnswer(invocation -> {
+        DteXmlSigningService xmlSigning = mock(DteXmlSigningService.class);
+        when(xmlSigning.signAll(any(), any(), any())).thenAnswer(invocation -> {
             DteXmlBuilderPort.BuiltDteXml built = invocation.getArgument(0);
             return new XmlSignerPort.SignedXml(
                     built.xml(),
-                    "#" + built.documentoId(),
-                    XmlSignerPort.SignatureTarget.DOCUMENTO,
+                    "#" + built.setDteId(),
+                    XmlSignerPort.SignatureTarget.SET_DTE,
                     UUID.randomUUID(),
                     XmlSignerPort.SignatureProfile.SII_LEGACY_RSA_SHA1
             );
@@ -57,7 +57,7 @@ class DteStorageXmlTest {
         DteXmlAssemblyService xmlAssembly = new DteXmlAssemblyService(
                 tedGenerator,
                 new DomDteXmlBuilderAdapter(),
-                documentSigning
+                xmlSigning
         );
         DteServiceImpl service = new DteServiceImpl(
                 documentRepository,

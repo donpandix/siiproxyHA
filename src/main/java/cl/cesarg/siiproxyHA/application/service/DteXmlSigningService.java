@@ -11,15 +11,15 @@ import java.util.Objects;
 import java.util.UUID;
 
 /**
- * Coordinates credential selection and the Documento XMLDSig operation.
+ * Coordinates credential selection and the chained DTE XMLDSig operations.
  */
 @Service
-public class DteDocumentSigningService {
+public class DteXmlSigningService {
 
     private final SigningCredentialPort credentials;
     private final XmlSignerPort xmlSigner;
 
-    public DteDocumentSigningService(
+    public DteXmlSigningService(
             SigningCredentialPort credentials,
             XmlSignerPort xmlSigner
     ) {
@@ -28,9 +28,9 @@ public class DteDocumentSigningService {
     }
 
     /**
-     * Signs Documento and records credential use only after a validated signature.
+     * Signs Documento and SetDTE in order, recording each validated operation.
      */
-    public XmlSignerPort.SignedXml sign(
+    public XmlSignerPort.SignedXml signAll(
             DteXmlBuilderPort.BuiltDteXml built,
             UUID tenantId,
             String signerRut
@@ -44,7 +44,7 @@ public class DteDocumentSigningService {
                         )
                 );
 
-        XmlSignerPort.SignedXml signed = xmlSigner.sign(
+        XmlSignerPort.SignedXml signedDocument = xmlSigner.sign(
                 new XmlSignerPort.SigningRequest(
                         built.xml(),
                         built.documentoId(),
@@ -54,9 +54,23 @@ public class DteDocumentSigningService {
                 )
         );
         credentials.recordSuccessfulUse(
-                signed.credentialId(),
+                signedDocument.credentialId(),
                 OffsetDateTime.now(ZoneOffset.UTC)
         );
-        return signed;
+
+        XmlSignerPort.SignedXml signedEnvelope = xmlSigner.sign(
+                new XmlSignerPort.SigningRequest(
+                        signedDocument.xml(),
+                        built.setDteId(),
+                        XmlSignerPort.SignatureTarget.SET_DTE,
+                        credential,
+                        XmlSignerPort.SignatureProfile.SII_LEGACY_RSA_SHA1
+                )
+        );
+        credentials.recordSuccessfulUse(
+                signedEnvelope.credentialId(),
+                OffsetDateTime.now(ZoneOffset.UTC)
+        );
+        return signedEnvelope;
     }
 }

@@ -5,7 +5,7 @@
 El XML construido por `DteXmlAssemblyService` se firma antes de almacenarse o
 devolverse. La coordinación queda separada en:
 
-- `DteDocumentSigningService`: selecciona la credencial por tenant y
+- `DteXmlSigningService`: selecciona la credencial por tenant y
   `RutEnvia`, solicita la firma y registra el uso exitoso;
 - `DomXmlSignerAdapter`: abre la credencial mediante el resolvedor PKCS#12,
   aplica XMLDSig y valida los bytes resultantes;
@@ -58,7 +58,8 @@ dominio.
 
 ## Límites
 
-- `SetDTE` todavía no se firma; el adaptador rechaza ese target explícitamente.
+- La firma posterior de `SetDTE` se describe en
+  `13-setdte-signature.md`.
 - Aún no se ejecuta validación XSD del sobre completo.
 - No se valida cadena de confianza ni revocación X.509 en esta etapa.
 - No se modifican endpoints, DTOs HTTP, almacenamiento ni base de datos.

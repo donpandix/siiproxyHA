@@ -16,16 +16,16 @@ public class DteXmlAssemblyService {
 
     private final TedGeneratorPort tedGenerator;
     private final DteXmlBuilderPort xmlBuilder;
-    private final DteDocumentSigningService documentSigning;
+    private final DteXmlSigningService xmlSigning;
 
     public DteXmlAssemblyService(
             TedGeneratorPort tedGenerator,
             DteXmlBuilderPort xmlBuilder,
-            DteDocumentSigningService documentSigning
+            DteXmlSigningService xmlSigning
     ) {
         this.tedGenerator = tedGenerator;
         this.xmlBuilder = xmlBuilder;
-        this.documentSigning = documentSigning;
+        this.xmlSigning = xmlSigning;
     }
 
     /**
@@ -35,7 +35,7 @@ public class DteXmlAssemblyService {
         validateAssignment(dte);
         TedGeneratorPort.GeneratedTed ted = tedGenerator.generate(tedRequest(dte));
         DteXmlBuilderPort.BuiltDteXml unsigned = xmlBuilder.build(buildRequest(dte, ted));
-        byte[] signedXml = documentSigning.sign(
+        byte[] signedXml = xmlSigning.signAll(
                 unsigned,
                 dte.getTenant().getId(),
                 dte.getRutEnvia()
