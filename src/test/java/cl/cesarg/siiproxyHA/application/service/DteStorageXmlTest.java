@@ -2,15 +2,20 @@ package cl.cesarg.siiproxyHA.application.service;
 
 import cl.cesarg.siiproxyHA.domain.model.DocumentMetadata;
 import cl.cesarg.siiproxyHA.domain.model.DocumentStatus;
+import cl.cesarg.siiproxyHA.domain.model.Caf;
 import cl.cesarg.siiproxyHA.domain.model.Dte;
+import cl.cesarg.siiproxyHA.domain.model.FolioAssignment;
+import cl.cesarg.siiproxyHA.domain.model.FolioPool;
 import cl.cesarg.siiproxyHA.domain.model.Tenant;
 import cl.cesarg.siiproxyHA.domain.port.DocumentoRepositoryPort;
 import cl.cesarg.siiproxyHA.domain.port.StoragePort;
+import cl.cesarg.siiproxyHA.domain.port.TedGeneratorPort;
 import org.junit.jupiter.api.Test;
 
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -23,9 +28,25 @@ class DteStorageXmlTest {
     void storesEnvioDteWithEmitterAndAuthorizedSenderSnapshots() throws Exception {
         InMemoryDocumentRepository documentRepository = new InMemoryDocumentRepository();
         InMemoryStorage storage = new InMemoryStorage();
-        DteServiceImpl service = new DteServiceImpl(documentRepository, storage, null, null, null);
+        UUID cafId = UUID.randomUUID();
+        TedGeneratorPort tedGenerator = request -> new TedGeneratorPort.GeneratedTed(
+                ("<TED version=\"1.0\"><DD/><FRMT algoritmo=\"SHA1withRSA\">"
+                        + "signed</FRMT></TED>").getBytes(StandardCharsets.ISO_8859_1),
+                "<DD/>".getBytes(StandardCharsets.ISO_8859_1),
+                LocalDateTime.of(2026, 2, 15, 10, 30, 45),
+                cafId
+        );
+        DteServiceImpl service = new DteServiceImpl(
+                documentRepository,
+                storage,
+                null,
+                null,
+                null,
+                tedGenerator
+        );
 
         Tenant tenant = new Tenant();
+        tenant.setId(UUID.randomUUID());
         tenant.setRutEmisor("76184688-4");
         tenant.setRazonSocial("REYES Y LARENAS LIMITADA");
         tenant.setGiro("VENTA AL POR MENOR");
@@ -47,9 +68,17 @@ class DteStorageXmlTest {
         dte.setMntNeto(7000L);
         dte.setIva(1330L);
         dte.setMntTotal(8330L);
+        Caf caf = new Caf();
+        caf.setId(cafId);
+        FolioPool pool = new FolioPool();
+        pool.setCaf(caf);
+        FolioAssignment assignment = new FolioAssignment();
+        assignment.setPuntoVenta(1);
+        assignment.setFolioPool(pool);
+        dte.setFolioAssignment(assignment);
 
         DocumentMetadata result = service.store(dte);
-        String xml = new String(storage.bytes, StandardCharsets.UTF_8);
+        String xml = new String(storage.bytes, StandardCharsets.ISO_8859_1);
 
         assertEquals(DocumentStatus.STORED, result.getStatus());
         assertTrue(xml.contains("<EnvioDTE"));
@@ -57,6 +86,7 @@ class DteStorageXmlTest {
         assertTrue(xml.contains("<RutEnvia>10438332-7</RutEnvia>"));
         assertTrue(xml.contains("<FchResol>2014-08-22</FchResol>"));
         assertTrue(xml.contains("<NroResol>80</NroResol>"));
+        assertTrue(xml.contains("<FRMT algoritmo=\"SHA1withRSA\">signed</FRMT>"));
     }
 
     private static class InMemoryStorage implements StoragePort {

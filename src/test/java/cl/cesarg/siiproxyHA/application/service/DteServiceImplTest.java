@@ -3,10 +3,14 @@ package cl.cesarg.siiproxyHA.application.service;
 import cl.cesarg.siiproxyHA.application.dto.DteRequest;
 import cl.cesarg.siiproxyHA.domain.model.DocumentMetadata;
 import cl.cesarg.siiproxyHA.domain.model.DocumentStatus;
+import cl.cesarg.siiproxyHA.domain.model.Caf;
 import cl.cesarg.siiproxyHA.domain.model.Dte;
+import cl.cesarg.siiproxyHA.domain.model.FolioAssignment;
+import cl.cesarg.siiproxyHA.domain.model.FolioPool;
 import cl.cesarg.siiproxyHA.domain.model.Tenant;
 import cl.cesarg.siiproxyHA.domain.port.DocumentoRepositoryPort;
 import cl.cesarg.siiproxyHA.domain.port.StoragePort;
+import cl.cesarg.siiproxyHA.domain.port.TedGeneratorPort;
 import cl.cesarg.siiproxyHA.infrastructure.persistence.DteRepository;
 import cl.cesarg.siiproxyHA.infrastructure.persistence.TenantRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,6 +24,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -45,12 +50,21 @@ class DteServiceImplTest {
     private TenantRepository tenantRepository;
     @Mock
     private CafService cafService;
+    @Mock
+    private TedGeneratorPort tedGenerator;
 
     private DteServiceImpl dteService;
 
     @BeforeEach
     void setUp() {
-        dteService = new DteServiceImpl(documentoRepository, storagePort, dteRepository, tenantRepository, cafService);
+        dteService = new DteServiceImpl(
+                documentoRepository,
+                storagePort,
+                dteRepository,
+                tenantRepository,
+                cafService,
+                tedGenerator
+        );
     }
 
     @Test
@@ -84,6 +98,14 @@ class DteServiceImplTest {
         assignedDte.setRutRecep("11111111-1");
         assignedDte.setRznSocRecep("11111111-1");
         assignedDte.setMntTotal(0L);
+        Caf caf = new Caf();
+        caf.setId(UUID.randomUUID());
+        FolioPool pool = new FolioPool();
+        pool.setCaf(caf);
+        FolioAssignment assignment = new FolioAssignment();
+        assignment.setPuntoVenta(1);
+        assignment.setFolioPool(pool);
+        assignedDte.setFolioAssignment(assignment);
 
         when(tenantRepository.findByRutEmisor("76184688-4")).thenReturn(Optional.of(tenant));
         when(dteRepository.save(any(Dte.class))).thenReturn(persistedDte);
@@ -91,6 +113,15 @@ class DteServiceImplTest {
         when(storagePort.store(any(String.class), any(InputStream.class), anyLong(), eq("application/xml")))
                 .thenReturn("dte/object.xml");
         when(documentoRepository.save(any(DocumentMetadata.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(tedGenerator.generate(any(TedGeneratorPort.TedRequest.class))).thenReturn(
+                new TedGeneratorPort.GeneratedTed(
+                        ("<TED version=\"1.0\"><DD/><FRMT algoritmo=\"SHA1withRSA\">"
+                                + "signed</FRMT></TED>").getBytes(StandardCharsets.ISO_8859_1),
+                        "<DD/>".getBytes(StandardCharsets.ISO_8859_1),
+                        LocalDateTime.of(2026, 7, 24, 12, 30, 45),
+                        caf.getId()
+                )
+        );
 
         DteRequest request = new DteRequest();
         request.setEmitterRUT("76184688-4");
@@ -107,8 +138,20 @@ class DteServiceImplTest {
 
         ArgumentCaptor<InputStream> streamCaptor = ArgumentCaptor.forClass(InputStream.class);
         verify(storagePort).store(eq("dte/" + dteId + ".xml"), streamCaptor.capture(), anyLong(), eq("application/xml"));
-        String generatedXml = new String(streamCaptor.getValue().readAllBytes(), StandardCharsets.UTF_8);
+        String generatedXml = new String(
+                streamCaptor.getValue().readAllBytes(),
+                StandardCharsets.ISO_8859_1
+        );
         assertTrue(generatedXml.contains("<Folio>123</Folio>"));
+        assertTrue(generatedXml.contains("<FRMT algoritmo=\"SHA1withRSA\">signed</FRMT>"));
+        assertTrue(generatedXml.contains("<TmstFirma>2026-07-24T12:30:45</TmstFirma>"));
+        assertTrue(generatedXml.contains("encoding=\"ISO-8859-1\""));
+        ArgumentCaptor<TedGeneratorPort.TedRequest> tedRequestCaptor =
+                ArgumentCaptor.forClass(TedGeneratorPort.TedRequest.class);
+        verify(tedGenerator).generate(tedRequestCaptor.capture());
+        assertEquals(caf.getId(), tedRequestCaptor.getValue().assignedCafId());
+        assertEquals(123, tedRequestCaptor.getValue().folio());
+        assertEquals(1, tedRequestCaptor.getValue().puntoVenta());
 
         assertEquals(dteId.toString(), result.getDocumentId());
         assertEquals("123", result.getFolio());

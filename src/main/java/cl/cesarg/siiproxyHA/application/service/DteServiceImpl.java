@@ -7,6 +7,7 @@ import cl.cesarg.siiproxyHA.domain.model.DocumentStatus;
 import cl.cesarg.siiproxyHA.domain.model.Tenant;
 import cl.cesarg.siiproxyHA.domain.port.DocumentoRepositoryPort;
 import cl.cesarg.siiproxyHA.domain.port.StoragePort;
+import cl.cesarg.siiproxyHA.domain.port.TedGeneratorPort;
 import cl.cesarg.siiproxyHA.infrastructure.persistence.DteRepository;
 import cl.cesarg.siiproxyHA.infrastructure.persistence.TenantRepository;
 import org.springframework.stereotype.Service;
@@ -17,6 +18,7 @@ import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.Base64;
 import java.util.Optional;
 import java.util.UUID;
@@ -24,22 +26,28 @@ import java.util.UUID;
 @Service
 public class DteServiceImpl implements DteService {
 
+    private static final DateTimeFormatter SII_TIMESTAMP =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
+
     private final DocumentoRepositoryPort documentoRepository;
     private final StoragePort storagePort;
     private final DteRepository dteRepository;
     private final TenantRepository tenantRepository;
     private final CafService cafService;
+    private final TedGeneratorPort tedGenerator;
 
     public DteServiceImpl(DocumentoRepositoryPort documentoRepository,
                           StoragePort storagePort,
                           DteRepository dteRepository,
                           TenantRepository tenantRepository,
-                          CafService cafService) {
+                          CafService cafService,
+                          TedGeneratorPort tedGenerator) {
         this.documentoRepository = documentoRepository;
         this.storagePort = storagePort;
         this.dteRepository = dteRepository;
         this.tenantRepository = tenantRepository;
         this.cafService = cafService;
+        this.tedGenerator = tedGenerator;
     }
 
     @Override
@@ -112,8 +120,7 @@ public class DteServiceImpl implements DteService {
                 meta.setStatus(DocumentStatus.STORED);
             }
         } else if (dte != null) {
-            String xml = generateXmlFromDte(dte);
-            byte[] bytes = xml.getBytes(StandardCharsets.UTF_8);
+            byte[] bytes = generateXmlFromDte(dte);
             String key = String.format("dte/%s.xml", documentId == null || documentId.isBlank() ? dte.getId() : documentId);
             try (var in = new ByteArrayInputStream(bytes)) {
                 String objectKey = storagePort.store(key, in, bytes.length, "application/xml");
@@ -137,8 +144,7 @@ public class DteServiceImpl implements DteService {
         Optional<DocumentMetadata> existing = documentoRepository.findByDocumentId(documentId);
         if (existing.isPresent()) return existing.get();
 
-        String xml = generateXmlFromDte(dte);
-        byte[] bytes = xml.getBytes(StandardCharsets.UTF_8);
+        byte[] bytes = generateXmlFromDte(dte);
         String key = String.format("dte/%s.xml", documentId);
 
         DocumentMetadata metadata = new DocumentMetadata(documentId, DocumentStatus.RECEIVED);
@@ -163,8 +169,8 @@ public class DteServiceImpl implements DteService {
         if (metaOpt.isEmpty()) {
             Optional<Dte> dteOpt = findDteByIdIfUuid(documentId);
             if (dteOpt.isPresent()) {
-                String xml = generateXmlFromDte(dteOpt.get());
-                String xmlBase64 = Base64.getEncoder().encodeToString(xml.getBytes(StandardCharsets.UTF_8));
+                byte[] xml = generateXmlFromDte(dteOpt.get());
+                String xmlBase64 = Base64.getEncoder().encodeToString(xml);
                 return new cl.cesarg.siiproxyHA.application.dto.DteXmlResponse(documentId, xmlBase64, null);
             }
             throw new IllegalArgumentException("Document not found");
@@ -176,8 +182,8 @@ public class DteServiceImpl implements DteService {
         if (objectKey == null) {
             Optional<Dte> dteOpt = findDteByIdIfUuid(documentId);
             if (dteOpt.isPresent()) {
-                String xml = generateXmlFromDte(dteOpt.get());
-                String xmlBase64 = Base64.getEncoder().encodeToString(xml.getBytes(StandardCharsets.UTF_8));
+                byte[] xml = generateXmlFromDte(dteOpt.get());
+                String xmlBase64 = Base64.getEncoder().encodeToString(xml);
                 return new cl.cesarg.siiproxyHA.application.dto.DteXmlResponse(documentId, xmlBase64, null);
             }
             throw new IllegalArgumentException("No object stored for document");
@@ -201,12 +207,14 @@ public class DteServiceImpl implements DteService {
         }
     }
 
-    private String generateXmlFromDte(Dte dte) {
+    private byte[] generateXmlFromDte(Dte dte) {
         LocalDate fchEmis = dte.getFchEmis();
         String fchEmisStr = fchEmis == null ? "" : fchEmis.toString();
+        TedGeneratorPort.GeneratedTed generatedTed = tedGenerator.generate(tedRequest(dte));
+        String signingTimestamp = generatedTed.generatedAt().format(SII_TIMESTAMP);
 
         StringBuilder xml = new StringBuilder();
-        xml.append("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>\n");
+        xml.append("<?xml version=\"1.0\" encoding=\"ISO-8859-1\" standalone=\"no\"?>\n");
         xml.append("<EnvioDTE xmlns=\"http://www.sii.cl/SiiDte\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" version=\"1.0\">\n");
         xml.append("  <SetDTE ID=\"SetDTE-").append(dte.getId()).append("\">\n");
         xml.append("    <Caratula version=\"1.0\">\n");
@@ -221,7 +229,7 @@ public class DteServiceImpl implements DteService {
                 : dte.getTenant().getNroResol();
         xml.append("      <FchResol>").append(escapeXml(fchResol)).append("</FchResol>\n");
         xml.append("      <NroResol>").append(nroResol).append("</NroResol>\n");
-        xml.append("      <TmstFirmaEnv>").append(escapeXml(fchEmisStr)).append("T00:00:00</TmstFirmaEnv>\n");
+        xml.append("      <TmstFirmaEnv>").append(signingTimestamp).append("</TmstFirmaEnv>\n");
         xml.append("      <SubTotDTE>\n");
         xml.append("        <TpoDTE>").append(nullSafe(dte.getTipoDte())).append("</TpoDTE>\n");
         xml.append("        <NroDTE>1</NroDTE>\n");
@@ -298,27 +306,47 @@ public class DteServiceImpl implements DteService {
             });
         }
 
-        xml.append("    <TED version=\"1.0\">\n");
-        xml.append("      <DD>\n");
-        xml.append("        <RE>").append(escapeXml(dte.getTenant() == null ? "" : dte.getTenant().getRutEmisor())).append("</RE>\n");
-        xml.append("        <TD>").append(nullSafe(dte.getTipoDte())).append("</TD>\n");
-        xml.append("        <F>").append(nullSafe(dte.getFolio())).append("</F>\n");
-        xml.append("        <FE>").append(escapeXml(fchEmisStr)).append("</FE>\n");
-        xml.append("        <RR>").append(escapeXml(dte.getRutRecep())).append("</RR>\n");
-        xml.append("        <RSR>").append(escapeXml(dte.getRznSocRecep())).append("</RSR>\n");
-        xml.append("        <MNT>").append(nullSafe(dte.getMntTotal())).append("</MNT>\n");
-        xml.append("        <IT1>").append(escapeXml((dte.getItems() == null || dte.getItems().isEmpty()) ? "ITEM" : dte.getItems().get(0).getNmbItem())).append("</IT1>\n");
-        xml.append("        <TSTED>").append(escapeXml(fchEmisStr)).append("T00:00:00</TSTED>\n");
-        xml.append("      </DD>\n");
-        xml.append("      <FRMT algoritmo=\"SHA1withRSA\">PLACEHOLDER</FRMT>\n");
-        xml.append("    </TED>\n");
-        xml.append("    <TmstFirma>").append(escapeXml(fchEmisStr)).append("T00:00:00</TmstFirma>\n");
+        xml.append("    ").append(
+                new String(generatedTed.tedXml(), StandardCharsets.ISO_8859_1)
+        ).append("\n");
+        xml.append("    <TmstFirma>").append(signingTimestamp).append("</TmstFirma>\n");
         xml.append("  </Documento>\n");
         xml.append("    </DTE>\n");
         xml.append("  </SetDTE>\n");
         xml.append("</EnvioDTE>\n");
 
-        return xml.toString();
+        return xml.toString().getBytes(StandardCharsets.ISO_8859_1);
+    }
+
+    private TedGeneratorPort.TedRequest tedRequest(Dte dte) {
+        if (dte.getTenant() == null || dte.getTenant().getId() == null) {
+            throw new IllegalStateException("DTE tenant is required for TED generation");
+        }
+        if (dte.getFolioAssignment() == null
+                || dte.getFolioAssignment().getFolioPool() == null
+                || dte.getFolioAssignment().getFolioPool().getCaf() == null
+                || dte.getFolioAssignment().getFolioPool().getCaf().getId() == null) {
+            throw new IllegalStateException(
+                    "DTE folio assignment with CAF is required for TED generation"
+            );
+        }
+
+        String firstItem = dte.getItems() == null || dte.getItems().isEmpty()
+                ? "ITEM"
+                : dte.getItems().getFirst().getNmbItem();
+        return new TedGeneratorPort.TedRequest(
+                dte.getTenant().getId(),
+                dte.getTenant().getRutEmisor(),
+                dte.getTipoDte(),
+                dte.getFolioAssignment().getPuntoVenta(),
+                dte.getFolio(),
+                dte.getFolioAssignment().getFolioPool().getCaf().getId(),
+                dte.getFchEmis(),
+                dte.getRutRecep(),
+                dte.getRznSocRecep(),
+                dte.getMntTotal(),
+                firstItem
+        );
     }
 
     private String nullSafe(Object value) {

@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -99,6 +100,43 @@ class SigningContractsTest {
         assertTrue(descriptor.authorizes(182));
         assertTrue(descriptor.authorizes(184));
         assertFalse(descriptor.authorizes(185));
+    }
+
+    @Test
+    void tedContractsNormalizeRutsAndDefensivelyCopyXml() {
+        UUID tenantId = UUID.randomUUID();
+        UUID cafId = UUID.randomUUID();
+        TedGeneratorPort.TedRequest request = new TedGeneratorPort.TedRequest(
+                tenantId,
+                "10.438.332-7",
+                33,
+                1,
+                100,
+                cafId,
+                LocalDate.of(2026, 7, 24),
+                "60.803.000-K",
+                "Receptor",
+                10_000,
+                "Primer item"
+        );
+        byte[] tedXml = "<TED/>".getBytes(StandardCharsets.ISO_8859_1);
+        byte[] ddXml = "<DD/>".getBytes(StandardCharsets.ISO_8859_1);
+        TedGeneratorPort.GeneratedTed generated = new TedGeneratorPort.GeneratedTed(
+                tedXml,
+                ddXml,
+                LocalDateTime.of(2026, 7, 24, 12, 30, 45),
+                cafId
+        );
+
+        tedXml[0] = 'X';
+        ddXml[0] = 'Y';
+        byte[] returnedTed = generated.tedXml();
+        returnedTed[0] = 'Z';
+
+        assertEquals("10438332-7", request.emitterRut());
+        assertEquals("60803000-K", request.receiverRut());
+        assertEquals('<', generated.tedXml()[0]);
+        assertEquals('<', generated.ddXml()[0]);
     }
 
     @Test

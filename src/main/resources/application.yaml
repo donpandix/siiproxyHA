@@ -55,6 +55,7 @@ jasypt:
 
 dte:
   xsd-path: classpath:xsd
+  signing-zone: ${DTE_SIGNING_ZONE:America/Santiago}
 
 # SII token configuration (placeholder values)
 sii:
