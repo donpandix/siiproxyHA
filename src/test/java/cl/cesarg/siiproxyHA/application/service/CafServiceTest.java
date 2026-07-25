@@ -5,6 +5,7 @@ import cl.cesarg.siiproxyHA.domain.model.Dte;
 import cl.cesarg.siiproxyHA.domain.model.FolioAssignment;
 import cl.cesarg.siiproxyHA.domain.model.FolioPool;
 import cl.cesarg.siiproxyHA.domain.model.Tenant;
+import cl.cesarg.siiproxyHA.domain.port.CafParserPort;
 import cl.cesarg.siiproxyHA.domain.port.StoragePort;
 import cl.cesarg.siiproxyHA.infrastructure.persistence.CafRepository;
 import cl.cesarg.siiproxyHA.infrastructure.persistence.DteRepository;
@@ -13,14 +14,21 @@ import cl.cesarg.siiproxyHA.infrastructure.persistence.FolioPoolRepository;
 import cl.cesarg.siiproxyHA.infrastructure.persistence.TenantRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -35,6 +43,7 @@ class CafServiceTest {
     private FolioAssignmentRepository folioAssignmentRepository;
     private DteRepository dteRepository;
     private StoragePort storagePort;
+    private CafParserPort cafParser;
     private CafService cafService;
 
     @BeforeEach
@@ -45,6 +54,7 @@ class CafServiceTest {
         folioAssignmentRepository = mock(FolioAssignmentRepository.class);
         dteRepository = mock(DteRepository.class);
         storagePort = mock(StoragePort.class);
+        cafParser = mock(CafParserPort.class);
 
         cafService = new CafService(
                 cafRepository,
@@ -52,8 +62,107 @@ class CafServiceTest {
                 folioPoolRepository,
                 folioAssignmentRepository,
                 dteRepository,
-                storagePort
+                storagePort,
+                cafParser
         );
+    }
+
+    @Test
+    void createUsesParsedMetadataAndSanitizesStorageFilename() throws Exception {
+        UUID tenantId = UUID.randomUUID();
+        Tenant tenant = new Tenant();
+        tenant.setId(tenantId);
+        tenant.setRutEmisor("10.438.332-7");
+        byte[] authorizationXml = "<AUTORIZACION/>".getBytes(StandardCharsets.UTF_8);
+        byte[] publicCafXml = "<CAF/>".getBytes(StandardCharsets.UTF_8);
+        CafParserPort.ParsedCaf parsed = new CafParserPort.ParsedCaf(
+                "10438332-7",
+                33,
+                100,
+                110,
+                LocalDate.of(2026, 1, 1),
+                publicCafXml,
+                true
+        );
+
+        when(tenantRepository.findById(tenantId)).thenReturn(Optional.of(tenant));
+        when(cafParser.parse(authorizationXml)).thenReturn(parsed);
+        when(cafRepository.save(any(Caf.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(folioPoolRepository.save(any(FolioPool.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Caf created = cafService.create(
+                tenantId,
+                2,
+                authorizationXml,
+                "../../caf autorizado.xml"
+        );
+
+        assertEquals(33, created.getTipoDte());
+        assertEquals(2, created.getPuntoVenta());
+        assertEquals(100, created.getFolioDesde());
+        assertEquals(110, created.getFolioHasta());
+        assertEquals("10438332-7", created.getRutEmisor());
+        assertEquals(LocalDate.of(2026, 1, 1), created.getFchAutorizacion());
+        ArgumentCaptor<String> keyCaptor = ArgumentCaptor.forClass(String.class);
+        verify(storagePort).store(
+                keyCaptor.capture(),
+                any(),
+                eq((long) authorizationXml.length),
+                eq("application/xml")
+        );
+        assertTrue(keyCaptor.getValue().endsWith("-caf_autorizado.xml"));
+    }
+
+    @Test
+    void createRejectsCafForAnotherIssuerBeforeStorage() throws Exception {
+        UUID tenantId = UUID.randomUUID();
+        Tenant tenant = new Tenant();
+        tenant.setId(tenantId);
+        tenant.setRutEmisor("10438332-7");
+        byte[] authorizationXml = "<AUTORIZACION/>".getBytes(StandardCharsets.UTF_8);
+        CafParserPort.ParsedCaf parsed = new CafParserPort.ParsedCaf(
+                "76086428-5",
+                33,
+                100,
+                110,
+                LocalDate.of(2026, 1, 1),
+                "<CAF/>".getBytes(StandardCharsets.UTF_8),
+                true
+        );
+
+        when(tenantRepository.findById(tenantId)).thenReturn(Optional.of(tenant));
+        when(cafParser.parse(authorizationXml)).thenReturn(parsed);
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> cafService.create(tenantId, authorizationXml, "caf.xml")
+        );
+        verify(storagePort, never()).store(any(), any(), anyLong(), any());
+        verify(cafRepository, never()).save(any());
+    }
+
+    @Test
+    void downloadReturnsOnlyPublicCafAndClearsStoredAuthorizationCopy() throws Exception {
+        byte[] authorizationXml = "<AUTORIZACION>private</AUTORIZACION>"
+                .getBytes(StandardCharsets.UTF_8);
+        byte[] publicCafXml = "<CAF>public</CAF>".getBytes(StandardCharsets.UTF_8);
+        Caf caf = new Caf();
+        caf.setCafPath("caf/test.xml");
+        when(storagePort.get("caf/test.xml")).thenReturn(authorizationXml);
+        when(cafParser.parse(authorizationXml)).thenReturn(new CafParserPort.ParsedCaf(
+                "10438332-7",
+                33,
+                100,
+                110,
+                LocalDate.of(2026, 1, 1),
+                publicCafXml,
+                true
+        ));
+
+        byte[] downloaded = cafService.downloadFile(caf);
+
+        assertArrayEquals(publicCafXml, downloaded);
+        assertTrue(allZero(authorizationXml));
     }
 
     @Test
@@ -151,5 +260,14 @@ class CafServiceTest {
         pool.setCreatedAt(Instant.now());
         pool.setUpdatedAt(Instant.now());
         return pool;
+    }
+
+    private boolean allZero(byte[] bytes) {
+        for (byte value : bytes) {
+            if (value != 0) {
+                return false;
+            }
+        }
+        return true;
     }
 }

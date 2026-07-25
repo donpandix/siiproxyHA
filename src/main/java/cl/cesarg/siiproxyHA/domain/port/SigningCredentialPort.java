@@ -16,6 +16,35 @@ public interface SigningCredentialPort {
      */
     SigningCredentialDescriptor requireSigningCredential(SigningCredentialSelector selector);
 
+    /**
+     * Records usage only after the caller completes a signature successfully.
+     */
+    void recordSuccessfulUse(UUID credentialId, OffsetDateTime usedAt);
+
+    enum CredentialFailureReason {
+        NOT_FOUND,
+        NOT_SIGNING_CAPABLE,
+        DEPENDENCY_UNAVAILABLE,
+        STALE
+    }
+
+    class SigningCredentialUnavailableException extends RuntimeException {
+
+        private final CredentialFailureReason reason;
+
+        public SigningCredentialUnavailableException(
+                CredentialFailureReason reason,
+                String message
+        ) {
+            super(message);
+            this.reason = Objects.requireNonNull(reason, "reason is required");
+        }
+
+        public CredentialFailureReason getReason() {
+            return reason;
+        }
+    }
+
     record SigningCredentialSelector(
             UUID tenantId,
             String signerRut,

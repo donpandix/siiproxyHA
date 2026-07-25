@@ -4,26 +4,24 @@ import cl.cesarg.siiproxyHA.domain.model.Caf;
 import cl.cesarg.siiproxyHA.domain.model.Dte;
 import cl.cesarg.siiproxyHA.domain.model.FolioAssignment;
 import cl.cesarg.siiproxyHA.domain.model.FolioPool;
+import cl.cesarg.siiproxyHA.domain.model.RutUtils;
 import cl.cesarg.siiproxyHA.domain.model.Tenant;
+import cl.cesarg.siiproxyHA.domain.port.CafParserPort;
+import cl.cesarg.siiproxyHA.domain.port.StoragePort;
+import cl.cesarg.siiproxyHA.infrastructure.persistence.CafRepository;
 import cl.cesarg.siiproxyHA.infrastructure.persistence.DteRepository;
 import cl.cesarg.siiproxyHA.infrastructure.persistence.FolioAssignmentRepository;
 import cl.cesarg.siiproxyHA.infrastructure.persistence.FolioPoolRepository;
-import cl.cesarg.siiproxyHA.infrastructure.persistence.CafRepository;
 import cl.cesarg.siiproxyHA.infrastructure.persistence.TenantRepository;
-import cl.cesarg.siiproxyHA.domain.port.StoragePort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.w3c.dom.Document;
 
-import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.xpath.XPath;
-import javax.xml.xpath.XPathConstants;
-import javax.xml.xpath.XPathFactory;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.security.MessageDigest;
 import java.time.Instant;
-import java.time.LocalDate;
+import java.util.Arrays;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -43,19 +41,22 @@ public class CafService {
     private final FolioAssignmentRepository folioAssignmentRepository;
     private final DteRepository dteRepository;
     private final StoragePort storagePort;
+    private final CafParserPort cafParser;
 
     public CafService(CafRepository cafRepository,
                       TenantRepository tenantRepository,
                       FolioPoolRepository folioPoolRepository,
                       FolioAssignmentRepository folioAssignmentRepository,
                       DteRepository dteRepository,
-                      StoragePort storagePort) {
+                      StoragePort storagePort,
+                      CafParserPort cafParser) {
         this.cafRepository = cafRepository;
         this.tenantRepository = tenantRepository;
         this.folioPoolRepository = folioPoolRepository;
         this.folioAssignmentRepository = folioAssignmentRepository;
         this.dteRepository = dteRepository;
         this.storagePort = storagePort;
+        this.cafParser = cafParser;
     }
 
     @Transactional
@@ -66,37 +67,24 @@ public class CafService {
     @Transactional
     public Caf create(UUID tenantId, Integer puntoVenta, byte[] xmlBytes, String originalFileName) throws Exception {
         Tenant tenant = tenantRepository.findById(tenantId).orElseThrow(() -> new IllegalArgumentException("tenant not found"));
-
-        // Parse XML
-        DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
-        dbf.setNamespaceAware(false);
-        Document doc;
-        try (InputStream is = new ByteArrayInputStream(xmlBytes)) {
-            doc = dbf.newDocumentBuilder().parse(is);
+        CafParserPort.ParsedCaf parsed = cafParser.parse(xmlBytes);
+        String tenantRut = RutUtils.normalizeAndValidate(tenant.getRutEmisor(), "tenant.rutEmisor");
+        if (!tenantRut.equals(parsed.rutEmisor())) {
+            throw new IllegalArgumentException("CAF issuer RUT does not match tenant");
         }
-
-        XPath xpath = XPathFactory.newInstance().newXPath();
-        String rut = (String) xpath.evaluate("//DA/RE/text()", doc, XPathConstants.STRING);
-        String td = (String) xpath.evaluate("//DA/TD/text()", doc, XPathConstants.STRING);
-        String d = (String) xpath.evaluate("//DA/RNG/D/text()", doc, XPathConstants.STRING);
-        String h = (String) xpath.evaluate("//DA/RNG/H/text()", doc, XPathConstants.STRING);
-        String fa = (String) xpath.evaluate("//DA/FA/text()", doc, XPathConstants.STRING);
-
-        int tipo = td != null && !td.isBlank() ? Integer.parseInt(td.trim()) : 0;
-        long desde = d != null && !d.isBlank() ? Long.parseLong(d.trim()) : 0L;
-        long hasta = h != null && !h.isBlank() ? Long.parseLong(h.trim()) : 0L;
-        LocalDate fechaAut = fa != null && !fa.isBlank() ? LocalDate.parse(fa.trim()) : null;
 
         // compute sha256 hex
         MessageDigest md = MessageDigest.getInstance("SHA-256");
-        byte[] digest = md.digest(xmlBytes);
-        StringBuilder sb = new StringBuilder();
-        for (byte b : digest) sb.append(String.format("%02x", b));
-        String sha256 = sb.toString();
+        String sha256 = HexFormat.of().formatHex(md.digest(xmlBytes));
 
         // store file
         UUID id = UUID.randomUUID();
-        String key = String.format("caf/%s/%s-%s", tenantId, id, originalFileName != null ? originalFileName : "caf.xml");
+        String key = String.format(
+                "caf/%s/%s-%s",
+                tenantId,
+                id,
+                sanitizeFilename(originalFileName)
+        );
         try (InputStream in = new ByteArrayInputStream(xmlBytes)) {
             storagePort.store(key, in, xmlBytes.length, "application/xml");
         }
@@ -104,14 +92,14 @@ public class CafService {
         Caf caf = new Caf();
         caf.setId(id);
         caf.setTenant(tenant);
-        caf.setTipoDte(tipo);
+        caf.setTipoDte(parsed.tipoDte());
         caf.setPuntoVenta(normalizePuntoVenta(puntoVenta));
-        caf.setFolioDesde(desde);
-        caf.setFolioHasta(hasta);
+        caf.setFolioDesde(parsed.folioDesde());
+        caf.setFolioHasta(parsed.folioHasta());
         caf.setCafPath(key);
         caf.setCafSha256(sha256);
-        caf.setRutEmisor(rut);
-        caf.setFchAutorizacion(fechaAut);
+        caf.setRutEmisor(parsed.rutEmisor());
+        caf.setFchAutorizacion(parsed.authorizationDate());
         caf.setCreatedAt(Instant.now());
         caf.setActive(true);
 
@@ -128,7 +116,15 @@ public class CafService {
     public void delete(UUID id) { cafRepository.deleteById(id); }
 
     public byte[] downloadFile(Caf caf) throws Exception {
-        return storagePort.get(caf.getCafPath());
+        byte[] authorizationXml = storagePort.get(caf.getCafPath());
+        if (authorizationXml == null || authorizationXml.length == 0) {
+            throw new IllegalStateException("Stored CAF is empty");
+        }
+        try {
+            return cafParser.parse(authorizationXml).publicCafXml();
+        } finally {
+            Arrays.fill(authorizationXml, (byte) 0);
+        }
     }
 
     @Transactional
@@ -274,6 +270,16 @@ public class CafService {
             return 1;
         }
         return puntoVenta;
+    }
+
+    private String sanitizeFilename(String originalFileName) {
+        if (originalFileName == null || originalFileName.isBlank()) {
+            return "caf.xml";
+        }
+        String normalized = originalFileName.replace('\\', '/');
+        String basename = normalized.substring(normalized.lastIndexOf('/') + 1);
+        String sanitized = basename.replaceAll("[^A-Za-z0-9._-]", "_");
+        return sanitized.isBlank() ? "caf.xml" : sanitized;
     }
 
     private void validateAllocationArgs(UUID tenantId, Integer tipoDte) {

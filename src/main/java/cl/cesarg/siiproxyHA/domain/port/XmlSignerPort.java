@@ -4,6 +4,8 @@ import java.util.Arrays;
 import java.util.Objects;
 import java.util.UUID;
 
+import cl.cesarg.siiproxyHA.domain.port.SigningCredentialPort.SigningCredentialDescriptor;
+
 /**
  * Signs an XML element without exposing provider-specific key or DOM types.
  */
@@ -27,7 +29,7 @@ public interface XmlSignerPort {
             byte[] xml,
             String referenceId,
             SignatureTarget target,
-            UUID credentialId,
+            SigningCredentialDescriptor credential,
             SignatureProfile profile
     ) {
 
@@ -41,7 +43,7 @@ public interface XmlSignerPort {
             }
             referenceId = referenceId.trim();
             Objects.requireNonNull(target, "target is required");
-            Objects.requireNonNull(credentialId, "credentialId is required");
+            Objects.requireNonNull(credential, "credential is required");
             Objects.requireNonNull(profile, "profile is required");
             xml = Arrays.copyOf(xml, xml.length);
         }

@@ -18,11 +18,12 @@ class SigningContractsTest {
     @Test
     void signingRequestDefensivelyCopiesXml() {
         byte[] input = "<DTE/>".getBytes(StandardCharsets.UTF_8);
+        SigningCredentialPort.SigningCredentialDescriptor credential = credential();
         XmlSignerPort.SigningRequest request = new XmlSignerPort.SigningRequest(
                 input,
                 "DTE-1",
                 XmlSignerPort.SignatureTarget.DOCUMENTO,
-                UUID.randomUUID(),
+                credential,
                 XmlSignerPort.SignatureProfile.SII_LEGACY_RSA_SHA1
         );
 
@@ -44,6 +45,18 @@ class SigningContractsTest {
                         UUID.randomUUID(),
                         XmlSignerPort.SignatureProfile.SII_LEGACY_RSA_SHA1
                 )
+        );
+    }
+
+    private SigningCredentialPort.SigningCredentialDescriptor credential() {
+        OffsetDateTime now = OffsetDateTime.now();
+        return new SigningCredentialPort.SigningCredentialDescriptor(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                "10438332-7",
+                "123",
+                now.minusDays(1),
+                now.plusDays(1)
         );
     }
 
