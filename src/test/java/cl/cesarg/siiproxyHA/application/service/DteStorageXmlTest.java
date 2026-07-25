@@ -10,6 +10,7 @@ import cl.cesarg.siiproxyHA.domain.model.Tenant;
 import cl.cesarg.siiproxyHA.domain.port.DocumentoRepositoryPort;
 import cl.cesarg.siiproxyHA.domain.port.StoragePort;
 import cl.cesarg.siiproxyHA.domain.port.TedGeneratorPort;
+import cl.cesarg.siiproxyHA.infrastructure.security.DomDteXmlBuilderAdapter;
 import org.junit.jupiter.api.Test;
 
 import java.io.InputStream;
@@ -30,11 +31,16 @@ class DteStorageXmlTest {
         InMemoryStorage storage = new InMemoryStorage();
         UUID cafId = UUID.randomUUID();
         TedGeneratorPort tedGenerator = request -> new TedGeneratorPort.GeneratedTed(
-                ("<TED version=\"1.0\"><DD/><FRMT algoritmo=\"SHA1withRSA\">"
+                ("<TED version=\"1.0\"><DD><F>182</F></DD>"
+                        + "<FRMT algoritmo=\"SHA1withRSA\">"
                         + "signed</FRMT></TED>").getBytes(StandardCharsets.ISO_8859_1),
-                "<DD/>".getBytes(StandardCharsets.ISO_8859_1),
+                "<DD><F>182</F></DD>".getBytes(StandardCharsets.ISO_8859_1),
                 LocalDateTime.of(2026, 2, 15, 10, 30, 45),
                 cafId
+        );
+        DteXmlAssemblyService xmlAssembly = new DteXmlAssemblyService(
+                tedGenerator,
+                new DomDteXmlBuilderAdapter()
         );
         DteServiceImpl service = new DteServiceImpl(
                 documentRepository,
@@ -42,7 +48,7 @@ class DteStorageXmlTest {
                 null,
                 null,
                 null,
-                tedGenerator
+                xmlAssembly
         );
 
         Tenant tenant = new Tenant();

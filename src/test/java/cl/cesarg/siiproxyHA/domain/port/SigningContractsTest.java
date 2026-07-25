@@ -2,6 +2,7 @@ package cl.cesarg.siiproxyHA.domain.port;
 
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -137,6 +138,74 @@ class SigningContractsTest {
         assertEquals("60803000-K", request.receiverRut());
         assertEquals('<', generated.tedXml()[0]);
         assertEquals('<', generated.ddXml()[0]);
+    }
+
+    @Test
+    void domBuilderContractsCopyCollectionsAndXmlBytes() {
+        TedGeneratorPort.GeneratedTed ted = new TedGeneratorPort.GeneratedTed(
+                "<TED/>".getBytes(StandardCharsets.ISO_8859_1),
+                "<DD/>".getBytes(StandardCharsets.ISO_8859_1),
+                LocalDateTime.of(2026, 7, 24, 12, 30, 45),
+                UUID.randomUUID()
+        );
+        DteXmlBuilderPort.ItemData item = new DteXmlBuilderPort.ItemData(
+                1,
+                "Item",
+                "",
+                1.0,
+                1_000.0,
+                1_000L
+        );
+        DteXmlBuilderPort.BuildRequest request = new DteXmlBuilderPort.BuildRequest(
+                UUID.randomUUID(),
+                new DteXmlBuilderPort.IssuerData(
+                        "76184688-4",
+                        "10438332-7",
+                        "Emisor",
+                        "Giro",
+                        "726000",
+                        "Dirección",
+                        "Comuna",
+                        LocalDate.of(2014, 8, 22),
+                        80
+                ),
+                new DteXmlBuilderPort.ReceiverData(
+                        "60803000-K",
+                        "Receptor",
+                        "Giro",
+                        "Dirección",
+                        "Comuna"
+                ),
+                new DteXmlBuilderPort.DocumentData(
+                        33,
+                        100,
+                        LocalDate.of(2026, 7, 24),
+                        1_000L,
+                        new BigDecimal("19"),
+                        190L,
+                        1_190L
+                ),
+                List.of(item),
+                List.of(),
+                ted
+        );
+        byte[] xml = "<EnvioDTE/>".getBytes(StandardCharsets.ISO_8859_1);
+        DteXmlBuilderPort.BuiltDteXml built = new DteXmlBuilderPort.BuiltDteXml(
+                xml,
+                "DTE-100",
+                "SetDTE-1",
+                "ISO-8859-1"
+        );
+
+        xml[0] = 'X';
+        byte[] returned = built.xml();
+        returned[0] = 'Y';
+
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> request.items().add(item)
+        );
+        assertEquals('<', built.xml()[0]);
     }
 
     @Test
