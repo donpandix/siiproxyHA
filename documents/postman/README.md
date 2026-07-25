@@ -31,9 +31,18 @@ curl {{baseUrl}}/api/v1/tenants/<TENANT_ID>/receptores
 ```
 
 # CAF
-Upload:
+Upload de fixture sanitizado (sirve para probar registro y asignación de folios,
+pero no contiene `RSASK` y no permite generar la firma `FRMT`):
+
 ```
 curl -v -F "tenantId=<TENANT_ID>" -F "file=@documents/samples/FoliosSII_33.xml" {{baseUrl}}/api/v1/caf
+```
+
+Para una prueba local de firma, guarde el CAF real bajo `local-secrets/` y nunca
+lo agregue a Git:
+
+```
+curl -v -F "tenantId=<TENANT_ID>" -F "file=@local-secrets/FoliosSII_33.xml" {{baseUrl}}/api/v1/caf
 ```
 
 Download:

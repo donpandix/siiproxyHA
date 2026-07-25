@@ -35,3 +35,14 @@ build/
 .env
 .env.*
 !.env.example
+
+### Private signing material ###
+local-secrets/
+*.key
+*.pem
+*.p12
+*.pfx
+*.pk8
+*.jks
+*.keystore
+**/FoliosSII_*.xml

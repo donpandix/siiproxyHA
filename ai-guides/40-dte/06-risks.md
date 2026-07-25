@@ -20,6 +20,10 @@ Riesgos operacionales:
 
 - Pérdida de artefactos por naming collision en MinIO. Mitigación: usar `documentId` + `folio` + timestamp en `objectKey`.
 - Exposición de claves/CAF en repositorio. Mitigación: usar KMS/LocalStack para desarrollo y variables de entorno en CI/CD.
+  Un archivo de autorización CAF que contenga `RSASK` es material privado y
+  nunca debe versionarse. Los CAF reales para pruebas locales deben mantenerse
+  bajo `local-secrets/`; los fixtures versionados deben estar sanitizados o
+  generarse con claves efímeras exclusivas de pruebas.
 
 Checklist de mitigación antes de merge (obligatorio):
 
