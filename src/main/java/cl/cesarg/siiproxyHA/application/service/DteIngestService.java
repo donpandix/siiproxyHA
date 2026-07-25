@@ -7,12 +7,12 @@ import cl.cesarg.siiproxyHA.domain.model.DocumentMetadata;
 import cl.cesarg.siiproxyHA.domain.model.Dte;
 import cl.cesarg.siiproxyHA.domain.model.DteItem;
 import cl.cesarg.siiproxyHA.domain.model.DteReference;
+import cl.cesarg.siiproxyHA.domain.model.FolioAssignment;
 import cl.cesarg.siiproxyHA.domain.model.Receptor;
 import cl.cesarg.siiproxyHA.domain.model.RutUtils;
 import cl.cesarg.siiproxyHA.domain.model.Tenant;
 import cl.cesarg.siiproxyHA.infrastructure.persistence.TenantRepository;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -45,7 +45,6 @@ public class DteIngestService {
         this.dteService = dteService;
     }
 
-    @Transactional
     public DocumentMetadata ingest(DteIngestPayload payload) throws Exception {
         UUID tenantId = parseUuid(payload.tenantId, "tenantId");
         Tenant tenant = tenantRepository.findById(tenantId)
@@ -60,6 +59,14 @@ public class DteIngestService {
 
         String rutEnvia = RutUtils.normalizeAndValidate(payload.rutEnvia, "rutEnvia");
         userCertificateService.requireActiveCertificate(tenantId, rutEnvia);
+
+        if (payload.id != null && !payload.id.isBlank()) {
+            UUID requestedId = parseUuid(payload.id, "id");
+            var existing = dteCrudService.findForStorage(requestedId, tenantId);
+            if (existing.isPresent()) {
+                return dteService.store(existing.get());
+            }
+        }
 
         Receptor receptor = receptorService.upsert(tenantId, toReceptorDto(payload.receptor));
         Instant now = Instant.now();
@@ -96,9 +103,10 @@ public class DteIngestService {
             String requestId = payload.id == null || payload.id.isBlank()
                     ? saved.getId().toString()
                     : payload.id;
-            cafService.assignFolioToDte(tenantId, saved.getId(), 1, requestId, "API");
-            saved = dteCrudService.findById(saved.getId())
-                    .orElseThrow(() -> new IllegalStateException("DTE not found after folio assignment"));
+            FolioAssignment assignment =
+                    cafService.assignFolioToDte(tenantId, saved.getId(), 1, requestId, "API");
+            saved.setFolio(assignment.getFolio());
+            saved.setFolioAssignment(assignment);
         }
 
         return dteService.store(saved);

@@ -54,6 +54,28 @@ public class DteCrudService {
         return dteRepository.findByIdAndTenantId(id, tenantId);
     }
 
+    @Transactional(readOnly = true)
+    public Optional<Dte> findForStorage(UUID id, UUID tenantId) {
+        return findByIdAndTenantId(id, tenantId).map(dte -> {
+            dte.getTenant().getId();
+            if (dte.getReceptor() != null) {
+                dte.getReceptor().getId();
+            }
+            if (dte.getFolioAssignment() != null) {
+                dte.getFolioAssignment().getPuntoVenta();
+                if (dte.getFolioAssignment().getFolioPool() != null) {
+                    dte.getFolioAssignment().getFolioPool().getId();
+                    if (dte.getFolioAssignment().getFolioPool().getCaf() != null) {
+                        dte.getFolioAssignment().getFolioPool().getCaf().getId();
+                    }
+                }
+            }
+            dte.getItems().size();
+            dte.getReferences().size();
+            return dte;
+        });
+    }
+
     public List<Dte> findAllByTenantId(UUID tenantId) {
         if (tenantId == null) {
             return dteRepository.findAll();

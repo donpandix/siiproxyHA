@@ -1,26 +1,33 @@
 package cl.cesarg.siiproxyHA.application.service;
 
 import cl.cesarg.siiproxyHA.application.dto.DteRequest;
+import cl.cesarg.siiproxyHA.application.exception.ObjectStorageException;
 import cl.cesarg.siiproxyHA.domain.model.Dte;
 import cl.cesarg.siiproxyHA.domain.model.DocumentMetadata;
 import cl.cesarg.siiproxyHA.domain.model.DocumentStatus;
+import cl.cesarg.siiproxyHA.domain.model.FolioAssignment;
 import cl.cesarg.siiproxyHA.domain.model.Tenant;
 import cl.cesarg.siiproxyHA.domain.port.DocumentoRepositoryPort;
 import cl.cesarg.siiproxyHA.domain.port.StoragePort;
 import cl.cesarg.siiproxyHA.infrastructure.persistence.DteRepository;
 import cl.cesarg.siiproxyHA.infrastructure.persistence.TenantRepository;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.io.ByteArrayInputStream;
+import java.security.MessageDigest;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.Base64;
+import java.util.HexFormat;
 import java.util.Optional;
 import java.util.UUID;
 
 @Service
 public class DteServiceImpl implements DteService {
+
+    private static final Duration STORE_CLAIM_LEASE = Duration.ofMinutes(5);
 
     private final DocumentoRepositoryPort documentoRepository;
     private final StoragePort storagePort;
@@ -44,12 +51,12 @@ public class DteServiceImpl implements DteService {
     }
 
     @Override
-    @Transactional
     public DocumentMetadata ingest(DteRequest request) throws Exception {
-        // Idempotency: if documentId present and exists, return existing
         if (request.getDocumentId() != null) {
             var existing = documentoRepository.findByDocumentId(request.getDocumentId());
-            if (existing.isPresent()) return existing.get();
+            if (existing.filter(metadata -> metadata.getStatus() == DocumentStatus.STORED).isPresent()) {
+                return existing.get();
+            }
         }
 
         // Basic business validation (more rules in domain)
@@ -82,71 +89,44 @@ public class DteServiceImpl implements DteService {
                 assignmentRequestId = request.getDocumentId();
             }
 
-            cafService.assignFolioToDte(
+            FolioAssignment assignment = cafService.assignFolioToDte(
                     tenant.getId(),
                     dte.getId(),
                     request.getPuntoVenta(),
                     assignmentRequestId,
                     request.getAssignedTo()
             );
-
-            dte = dteRepository.findById(dte.getId())
-                    .orElseThrow(() -> new IllegalStateException("DTE not found after folio assignment"));
+            dte.setFolio(assignment.getFolio());
+            dte.setFolioAssignment(assignment);
 
             if (documentId == null || documentId.isBlank()) {
                 documentId = dte.getId().toString();
             }
         }
 
-        DocumentMetadata meta = new DocumentMetadata(documentId, DocumentStatus.RECEIVED);
-        if (dte != null && dte.getFolio() != null) {
-            meta.setFolio(String.valueOf(dte.getFolio()));
+        if (documentId == null || documentId.isBlank()) {
+            documentId = UUID.randomUUID().toString();
         }
 
-        // If XML provided, store it in storage. Otherwise, generate XML from DTE with assigned folio.
         if (request.getXmlBase64() != null && !request.getXmlBase64().isBlank()) {
             byte[] bytes = Base64.getDecoder().decode(request.getXmlBase64());
-            String key = String.format("dte/%s.xml", documentId == null || documentId.isBlank() ? UUID.randomUUID() : documentId);
-            try (var in = new ByteArrayInputStream(bytes)) {
-                String objectKey = storagePort.store(key, in, bytes.length, "application/xml");
-                meta.setObjectKey(objectKey);
-                meta.setStatus(DocumentStatus.STORED);
-            }
-        } else if (dte != null) {
-            byte[] bytes = generateXmlFromDte(dte);
-            String key = String.format("dte/%s.xml", documentId == null || documentId.isBlank() ? dte.getId() : documentId);
-            try (var in = new ByteArrayInputStream(bytes)) {
-                String objectKey = storagePort.store(key, in, bytes.length, "application/xml");
-                meta.setObjectKey(objectKey);
-                meta.setStatus(DocumentStatus.STORED);
-            }
+            String folio = dte == null || dte.getFolio() == null ? null : dte.getFolio().toString();
+            return storeArtifact(documentId, folio, "dte/" + documentId + ".xml", () -> bytes);
         }
 
-        if (meta.getDocumentId() == null || meta.getDocumentId().isBlank()) {
-            meta.setDocumentId(UUID.randomUUID().toString());
+        if (dte != null) {
+            return store(dte);
         }
 
-        meta = documentoRepository.save(meta);
-
-        return meta;
+        return documentoRepository.createIfAbsent(new DocumentMetadata(documentId, DocumentStatus.RECEIVED));
     }
 
     @Override
     public DocumentMetadata store(Dte dte) throws Exception {
         String documentId = dte.getId().toString();
-        Optional<DocumentMetadata> existing = documentoRepository.findByDocumentId(documentId);
-        if (existing.isPresent()) return existing.get();
-
-        byte[] bytes = generateXmlFromDte(dte);
-        String key = String.format("dte/%s.xml", documentId);
-
-        DocumentMetadata metadata = new DocumentMetadata(documentId, DocumentStatus.RECEIVED);
-        metadata.setFolio(dte.getFolio() == null ? null : dte.getFolio().toString());
-        try (var input = new ByteArrayInputStream(bytes)) {
-            metadata.setObjectKey(storagePort.store(key, input, bytes.length, "application/xml"));
-            metadata.setStatus(DocumentStatus.STORED);
-        }
-        return documentoRepository.save(metadata);
+        String folio = dte.getFolio() == null ? null : dte.getFolio().toString();
+        String key = dteObjectKey(dte);
+        return storeArtifact(documentId, folio, key, () -> generateXmlFromDte(dte));
     }
 
     @Override
@@ -156,29 +136,16 @@ public class DteServiceImpl implements DteService {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public cl.cesarg.siiproxyHA.application.dto.DteXmlResponse getXml(String documentId, boolean presigned, int expiryMinutes) throws Exception {
         Optional<DocumentMetadata> metaOpt = documentoRepository.findByDocumentId(documentId);
         if (metaOpt.isEmpty()) {
-            Optional<Dte> dteOpt = findDteByIdIfUuid(documentId);
-            if (dteOpt.isPresent()) {
-                byte[] xml = generateXmlFromDte(dteOpt.get());
-                String xmlBase64 = Base64.getEncoder().encodeToString(xml);
-                return new cl.cesarg.siiproxyHA.application.dto.DteXmlResponse(documentId, xmlBase64, null);
-            }
             throw new IllegalArgumentException("Document not found");
         }
 
         DocumentMetadata meta = metaOpt.get();
 
         String objectKey = meta.getObjectKey();
-        if (objectKey == null) {
-            Optional<Dte> dteOpt = findDteByIdIfUuid(documentId);
-            if (dteOpt.isPresent()) {
-                byte[] xml = generateXmlFromDte(dteOpt.get());
-                String xmlBase64 = Base64.getEncoder().encodeToString(xml);
-                return new cl.cesarg.siiproxyHA.application.dto.DteXmlResponse(documentId, xmlBase64, null);
-            }
+        if (meta.getStatus() != DocumentStatus.STORED || objectKey == null) {
             throw new IllegalArgumentException("No object stored for document");
         }
 
@@ -192,15 +159,109 @@ public class DteServiceImpl implements DteService {
         }
     }
 
-    private Optional<Dte> findDteByIdIfUuid(String documentId) {
+    private DocumentMetadata storeArtifact(String documentId,
+                                           String folio,
+                                           String objectKey,
+                                           ArtifactProducer producer) throws Exception {
+        DocumentMetadata initial = new DocumentMetadata(documentId, DocumentStatus.RECEIVED);
+        initial.setFolio(folio);
+        initial.setObjectKey(objectKey);
+        DocumentMetadata metadata = documentoRepository.createIfAbsent(initial);
+        if (metadata.getStatus() == DocumentStatus.STORED) {
+            return metadata;
+        }
+
+        boolean retry = metadata.getAttemptCount() != null && metadata.getAttemptCount() > 0;
+        OffsetDateTime staleBefore = OffsetDateTime.now().minus(STORE_CLAIM_LEASE);
+        if (!documentoRepository.tryClaimStore(documentId, staleBefore)) {
+            return documentoRepository.findByDocumentId(documentId).orElse(metadata);
+        }
+
+        metadata = documentoRepository.findByDocumentId(documentId)
+                .orElseThrow(() -> new IllegalStateException("Document metadata disappeared during storage"));
+
+        if (retry && metadata.getSha256() != null) {
+            DocumentMetadata recovered = recoverStoredArtifact(metadata);
+            if (recovered != null) {
+                return recovered;
+            }
+        }
+
+        byte[] bytes;
         try {
-            return dteRepository.findById(UUID.fromString(documentId));
-        } catch (IllegalArgumentException ex) {
-            return Optional.empty();
+            bytes = producer.produce();
+        } catch (Exception exception) {
+            markFailure(metadata, DocumentStatus.FAILED_FATAL, "XML generation or validation failed");
+            throw exception;
+        }
+
+        metadata.setSha256(sha256(bytes));
+        metadata.setSizeBytes((long) bytes.length);
+        metadata.setStatus(DocumentStatus.PENDING_STORE);
+        metadata.setLastError(null);
+        documentoRepository.save(metadata);
+
+        try (var input = new ByteArrayInputStream(bytes)) {
+            String storedKey = storagePort.store(objectKey, input, bytes.length, "application/xml");
+            metadata.setObjectKey(storedKey);
+            metadata.setStatus(DocumentStatus.STORED);
+            metadata.setLastError(null);
+            return documentoRepository.save(metadata);
+        } catch (Exception exception) {
+            markFailure(metadata, DocumentStatus.FAILED_RECOVERABLE, "Object storage write failed");
+            throw exception;
+        }
+    }
+
+    private DocumentMetadata recoverStoredArtifact(DocumentMetadata metadata) throws Exception {
+        try {
+            byte[] stored = storagePort.get(metadata.getObjectKey());
+            if (stored == null || stored.length == 0) {
+                return null;
+            }
+            String storedHash = sha256(stored);
+            if (metadata.getSha256() != null && !metadata.getSha256().equals(storedHash)) {
+                markFailure(metadata, DocumentStatus.FAILED_FATAL, "Stored artifact checksum mismatch");
+                throw new IllegalStateException("Stored artifact checksum does not match document metadata");
+            }
+            metadata.setSha256(storedHash);
+            metadata.setSizeBytes((long) stored.length);
+            metadata.setStatus(DocumentStatus.STORED);
+            metadata.setLastError(null);
+            return documentoRepository.save(metadata);
+        } catch (ObjectStorageException exception) {
+            return null;
+        }
+    }
+
+    private void markFailure(DocumentMetadata metadata, DocumentStatus status, String message) {
+        metadata.setStatus(status);
+        metadata.setLastError(message);
+        documentoRepository.save(metadata);
+    }
+
+    private String dteObjectKey(Dte dte) {
+        LocalDate emissionDate = dte.getFchEmis();
+        String year = emissionDate == null ? "unknown" : String.valueOf(emissionDate.getYear());
+        String month = emissionDate == null ? "unknown" : "%02d".formatted(emissionDate.getMonthValue());
+        String folio = dte.getFolio() == null ? "unassigned" : dte.getFolio().toString();
+        return "dte/%s/%s/%s-%s.xml".formatted(year, month, dte.getId(), folio);
+    }
+
+    private String sha256(byte[] bytes) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+        } catch (Exception exception) {
+            throw new IllegalStateException("SHA-256 is unavailable", exception);
         }
     }
 
     private byte[] generateXmlFromDte(Dte dte) {
         return xmlAssembly.build(dte).xml();
+    }
+
+    @FunctionalInterface
+    private interface ArtifactProducer {
+        byte[] produce() throws Exception;
     }
 }

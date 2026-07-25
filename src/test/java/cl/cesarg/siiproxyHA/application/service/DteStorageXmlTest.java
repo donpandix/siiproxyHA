@@ -19,6 +19,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -146,6 +147,24 @@ class DteStorageXmlTest {
             return metadata == null || !documentId.equals(metadata.getDocumentId())
                     ? Optional.empty()
                     : Optional.of(metadata);
+        }
+
+        @Override
+        public DocumentMetadata createIfAbsent(DocumentMetadata meta) {
+            if (metadata == null) {
+                metadata = meta;
+            }
+            return metadata;
+        }
+
+        @Override
+        public boolean tryClaimStore(String documentId, OffsetDateTime staleBefore) {
+            if (metadata == null || metadata.getStatus() == DocumentStatus.STORED) {
+                return false;
+            }
+            metadata.setStatus(DocumentStatus.PENDING_STORE);
+            metadata.setAttemptCount((metadata.getAttemptCount() == null ? 0 : metadata.getAttemptCount()) + 1);
+            return true;
         }
     }
 }

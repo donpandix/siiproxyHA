@@ -4,6 +4,7 @@ import cl.cesarg.siiproxyHA.application.dto.DteRequest;
 import cl.cesarg.siiproxyHA.domain.model.DocumentMetadata;
 import cl.cesarg.siiproxyHA.domain.model.DocumentStatus;
 import cl.cesarg.siiproxyHA.domain.model.Dte;
+import cl.cesarg.siiproxyHA.domain.model.FolioAssignment;
 import cl.cesarg.siiproxyHA.domain.model.Tenant;
 import cl.cesarg.siiproxyHA.domain.port.DteXmlBuilderPort;
 import cl.cesarg.siiproxyHA.domain.port.DocumentoRepositoryPort;
@@ -21,8 +22,10 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -50,9 +53,28 @@ class DteServiceImplTest {
     private DteXmlAssemblyService xmlAssembly;
 
     private DteServiceImpl dteService;
+    private AtomicReference<DocumentMetadata> metadata;
 
     @BeforeEach
     void setUp() {
+        metadata = new AtomicReference<>();
+        when(documentoRepository.createIfAbsent(any(DocumentMetadata.class))).thenAnswer(invocation -> {
+            metadata.compareAndSet(null, invocation.getArgument(0));
+            return metadata.get();
+        });
+        when(documentoRepository.tryClaimStore(any(String.class), any(OffsetDateTime.class))).thenAnswer(invocation -> {
+            DocumentMetadata current = metadata.get();
+            current.setStatus(DocumentStatus.PENDING_STORE);
+            current.setAttemptCount((current.getAttemptCount() == null ? 0 : current.getAttemptCount()) + 1);
+            return true;
+        });
+        when(documentoRepository.findByDocumentId(any(String.class)))
+                .thenAnswer(invocation -> Optional.ofNullable(metadata.get()));
+        when(documentoRepository.save(any(DocumentMetadata.class))).thenAnswer(invocation -> {
+            DocumentMetadata current = invocation.getArgument(0);
+            metadata.set(current);
+            return current;
+        });
         dteService = new DteServiceImpl(
                 documentoRepository,
                 storagePort,
@@ -85,28 +107,20 @@ class DteServiceImplTest {
         persistedDte.setCreatedAt(Instant.now());
         persistedDte.setUpdatedAt(Instant.now());
 
-        Dte assignedDte = new Dte();
-        assignedDte.setId(dteId);
-        assignedDte.setTenant(tenant);
-        assignedDte.setTipoDte(33);
-        assignedDte.setFolio(123L);
-        assignedDte.setFchEmis(LocalDate.now());
-        assignedDte.setRutRecep("11111111-1");
-        assignedDte.setRznSocRecep("11111111-1");
-        assignedDte.setMntTotal(0L);
-
         when(tenantRepository.findByRutEmisor("76184688-4")).thenReturn(Optional.of(tenant));
         when(dteRepository.save(any(Dte.class))).thenReturn(persistedDte);
-        when(dteRepository.findById(dteId)).thenReturn(Optional.of(assignedDte));
+        FolioAssignment assignment = new FolioAssignment();
+        assignment.setFolio(123L);
+        when(cafService.assignFolioToDte(tenantId, dteId, 1, "req-ingest-1", "ingest-test"))
+                .thenReturn(assignment);
         when(storagePort.store(any(String.class), any(InputStream.class), anyLong(), eq("application/xml")))
                 .thenReturn("dte/object.xml");
-        when(documentoRepository.save(any(DocumentMetadata.class))).thenAnswer(invocation -> invocation.getArgument(0));
         byte[] builtXml = ("<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>"
                 + "<EnvioDTE><Folio>123</Folio>"
                 + "<FRMT algoritmo=\"SHA1withRSA\">signed</FRMT>"
                 + "<TmstFirma>2026-07-24T12:30:45</TmstFirma></EnvioDTE>")
                 .getBytes(StandardCharsets.ISO_8859_1);
-        when(xmlAssembly.build(assignedDte)).thenReturn(
+        when(xmlAssembly.build(persistedDte)).thenReturn(
                 new DteXmlBuilderPort.BuiltDteXml(
                         builtXml,
                         "DTE-123",
@@ -129,7 +143,14 @@ class DteServiceImplTest {
         verify(cafService).assignFolioToDte(tenantId, dteId, 1, "req-ingest-1", "ingest-test");
 
         ArgumentCaptor<InputStream> streamCaptor = ArgumentCaptor.forClass(InputStream.class);
-        verify(storagePort).store(eq("dte/" + dteId + ".xml"), streamCaptor.capture(), anyLong(), eq("application/xml"));
+        verify(storagePort).store(
+                eq("dte/" + LocalDate.now().getYear() + "/"
+                        + "%02d".formatted(LocalDate.now().getMonthValue())
+                        + "/" + dteId + "-123.xml"),
+                streamCaptor.capture(),
+                anyLong(),
+                eq("application/xml")
+        );
         String generatedXml = new String(
                 streamCaptor.getValue().readAllBytes(),
                 StandardCharsets.ISO_8859_1
@@ -138,7 +159,7 @@ class DteServiceImplTest {
         assertTrue(generatedXml.contains("<FRMT algoritmo=\"SHA1withRSA\">signed</FRMT>"));
         assertTrue(generatedXml.contains("<TmstFirma>2026-07-24T12:30:45</TmstFirma>"));
         assertTrue(generatedXml.contains("encoding=\"ISO-8859-1\""));
-        verify(xmlAssembly).build(assignedDte);
+        verify(xmlAssembly).build(persistedDte);
 
         assertEquals(dteId.toString(), result.getDocumentId());
         assertEquals("123", result.getFolio());

@@ -9,6 +9,7 @@ Estados (definidos y obligatorios):
 - `FOLIO_ASSIGNED`: folio fiscal reservado y registrado.
 - `TED_GENERATED`: TED creado (antes de firma).
 - `SIGNED`: XML firmado y checksum calculado.
+- `PENDING_STORE`: metadata y claim de escritura persistidos; el artefacto aún no está confirmado en MinIO.
 - `STORED`: artefactos (XML firmado) persistidos en MinIO y `objectKey` en BD.
 - `ENQUEUED`: mensaje enviado a SQS para envío/otros procesos.
 - `SENT`: (opcional en integraciones futuras) enviado al SII y confirmado.
@@ -17,7 +18,7 @@ Estados (definidos y obligatorios):
 
 Transiciones válidas (ejemplos):
 
-- `RECEIVED` → `VALIDATED` → `FOLIO_ASSIGNED` → `TED_GENERATED` → `SIGNED` → `STORED` → `ENQUEUED` → `SENT`
+- `RECEIVED` → `VALIDATED` → `FOLIO_ASSIGNED` → `TED_GENERATED` → `SIGNED` → `PENDING_STORE` → `STORED` → `ENQUEUED` → `SENT`
 - En cualquier punto, ante errores transitorios: → `FAILED_RECOVERABLE` → (backoff/retry) → reintentar la transición.
 - Ante errores irreversibles: → `FAILED_FATAL`.
 

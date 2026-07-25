@@ -29,16 +29,20 @@ paths:
               assignedTo: POSTMAN
       responses:
         '201':
-          description: Documento creado
+          description: Documento creado o resultado idempotente de una solicitud previa
           headers:
             Location:
               description: URL al recurso creado
               schema:
                 type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DteStatusResponse'
         '400':
           description: Petición inválida
         '409':
-          description: Documento ya existe (idempotencia)
+          description: Conflicto con otra restricción de unicidad del dominio
 
   /api/v1/dte/{id}/status:
     get:
@@ -121,11 +125,48 @@ components:
 
     DteStatusResponse:
       type: object
+      required:
+        - documentId
+        - status
       properties:
+        id:
+          type: integer
+          format: int64
         documentId:
+          type: string
+        folio:
           type: string
         status:
           type: string
+          enum:
+            - RECEIVED
+            - VALIDATED
+            - FOLIO_ASSIGNED
+            - TED_GENERATED
+            - SIGNED
+            - PENDING_STORE
+            - STORED
+            - ENQUEUED
+            - SENT
+            - FAILED_RECOVERABLE
+            - FAILED_FATAL
+        objectKey:
+          type: string
+        sha256:
+          type: string
+          pattern: '^[0-9a-f]{64}$'
+        sizeBytes:
+          type: integer
+          format: int64
+        attemptCount:
+          type: integer
+          minimum: 0
+        lastError:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
         updatedAt:
           type: string
           format: date-time

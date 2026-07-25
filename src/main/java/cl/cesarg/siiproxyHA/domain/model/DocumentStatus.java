@@ -6,6 +6,7 @@ public enum DocumentStatus {
     FOLIO_ASSIGNED,
     TED_GENERATED,
     SIGNED,
+    PENDING_STORE,
     STORED,
     ENQUEUED,
     SENT,

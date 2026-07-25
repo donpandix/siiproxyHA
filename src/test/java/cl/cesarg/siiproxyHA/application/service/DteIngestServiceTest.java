@@ -102,6 +102,37 @@ class DteIngestServiceTest {
         verify(tenantRepository, never()).save(any(Tenant.class));
     }
 
+    @Test
+    void returnsExistingDocumentForAnIdempotentReplay() throws Exception {
+        UUID tenantId = UUID.randomUUID();
+        UUID dteId = UUID.randomUUID();
+        Tenant tenant = new Tenant();
+        tenant.setId(tenantId);
+        tenant.setTenantCode("TENANT-1");
+        tenant.setRutEmisor("76184688-4");
+        tenant.setFchResol(LocalDate.of(2014, 8, 22));
+        tenant.setNroResol(80);
+        Dte existing = new Dte();
+        existing.setId(dteId);
+        existing.setTenant(tenant);
+        DocumentMetadata stored = new DocumentMetadata(dteId.toString(), DocumentStatus.STORED);
+
+        when(tenantRepository.findById(tenantId)).thenReturn(Optional.of(tenant));
+        when(userCertificateService.requireActiveCertificate(tenantId, "10438332-7"))
+                .thenReturn(new UserCertificateEntity());
+        when(dteCrudService.findForStorage(dteId, tenantId)).thenReturn(Optional.of(existing));
+        when(dteService.store(existing)).thenReturn(stored);
+        DteIngestPayload payload = validPayload(tenantId);
+        payload.id = dteId.toString();
+
+        DocumentMetadata result = service.ingest(payload);
+
+        assertSame(stored, result);
+        verify(receptorService, never()).upsert(any(), any());
+        verify(dteCrudService, never()).create(any());
+        verify(cafService, never()).assignFolioToDte(any(), any(), any(), any(), any());
+    }
+
     private DteIngestPayload validPayload(UUID tenantId) {
         DteIngestPayload payload = new DteIngestPayload();
         payload.tenantId = tenantId.toString();
