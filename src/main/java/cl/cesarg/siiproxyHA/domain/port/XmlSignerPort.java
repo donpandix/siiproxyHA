@@ -25,6 +25,45 @@ public interface XmlSignerPort {
         SII_LEGACY_RSA_SHA1
     }
 
+    enum XmlSigningFailureReason {
+        UNSUPPORTED_TARGET,
+        INVALID_XML,
+        TARGET_NOT_FOUND,
+        AMBIGUOUS_TARGET,
+        INVALID_STRUCTURE,
+        ALREADY_SIGNED,
+        SIGNATURE_INVALID,
+        DD_CHANGED,
+        SIGNING_FAILURE,
+        SERIALIZATION_FAILURE
+    }
+
+    class XmlSigningException extends RuntimeException {
+
+        private final XmlSigningFailureReason reason;
+
+        public XmlSigningException(
+                XmlSigningFailureReason reason,
+                String message
+        ) {
+            super(message);
+            this.reason = Objects.requireNonNull(reason, "reason is required");
+        }
+
+        public XmlSigningException(
+                XmlSigningFailureReason reason,
+                String message,
+                Throwable cause
+        ) {
+            super(message, cause);
+            this.reason = Objects.requireNonNull(reason, "reason is required");
+        }
+
+        public XmlSigningFailureReason getReason() {
+            return reason;
+        }
+    }
+
     record SigningRequest(
             byte[] xml,
             String referenceId,

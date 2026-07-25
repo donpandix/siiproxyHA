@@ -16,22 +16,36 @@ public class DteXmlAssemblyService {
 
     private final TedGeneratorPort tedGenerator;
     private final DteXmlBuilderPort xmlBuilder;
+    private final DteDocumentSigningService documentSigning;
 
     public DteXmlAssemblyService(
             TedGeneratorPort tedGenerator,
-            DteXmlBuilderPort xmlBuilder
+            DteXmlBuilderPort xmlBuilder,
+            DteDocumentSigningService documentSigning
     ) {
         this.tedGenerator = tedGenerator;
         this.xmlBuilder = xmlBuilder;
+        this.documentSigning = documentSigning;
     }
 
     /**
-     * Builds one unsigned EnvioDTE with a cryptographically signed TED.
+     * Builds one EnvioDTE with signed TED and Documento.
      */
     public DteXmlBuilderPort.BuiltDteXml build(Dte dte) {
         validateAssignment(dte);
         TedGeneratorPort.GeneratedTed ted = tedGenerator.generate(tedRequest(dte));
-        return xmlBuilder.build(buildRequest(dte, ted));
+        DteXmlBuilderPort.BuiltDteXml unsigned = xmlBuilder.build(buildRequest(dte, ted));
+        byte[] signedXml = documentSigning.sign(
+                unsigned,
+                dte.getTenant().getId(),
+                dte.getRutEnvia()
+        ).xml();
+        return new DteXmlBuilderPort.BuiltDteXml(
+                signedXml,
+                unsigned.documentoId(),
+                unsigned.setDteId(),
+                unsigned.encoding()
+        );
     }
 
     private DteXmlBuilderPort.BuildRequest buildRequest(

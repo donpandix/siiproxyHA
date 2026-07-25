@@ -8,8 +8,10 @@ import cl.cesarg.siiproxyHA.domain.model.FolioAssignment;
 import cl.cesarg.siiproxyHA.domain.model.FolioPool;
 import cl.cesarg.siiproxyHA.domain.model.Tenant;
 import cl.cesarg.siiproxyHA.domain.port.DocumentoRepositoryPort;
+import cl.cesarg.siiproxyHA.domain.port.DteXmlBuilderPort;
 import cl.cesarg.siiproxyHA.domain.port.StoragePort;
 import cl.cesarg.siiproxyHA.domain.port.TedGeneratorPort;
+import cl.cesarg.siiproxyHA.domain.port.XmlSignerPort;
 import cl.cesarg.siiproxyHA.infrastructure.security.DomDteXmlBuilderAdapter;
 import org.junit.jupiter.api.Test;
 
@@ -22,6 +24,9 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class DteStorageXmlTest {
 
@@ -38,9 +43,21 @@ class DteStorageXmlTest {
                 LocalDateTime.of(2026, 2, 15, 10, 30, 45),
                 cafId
         );
+        DteDocumentSigningService documentSigning = mock(DteDocumentSigningService.class);
+        when(documentSigning.sign(any(), any(), any())).thenAnswer(invocation -> {
+            DteXmlBuilderPort.BuiltDteXml built = invocation.getArgument(0);
+            return new XmlSignerPort.SignedXml(
+                    built.xml(),
+                    "#" + built.documentoId(),
+                    XmlSignerPort.SignatureTarget.DOCUMENTO,
+                    UUID.randomUUID(),
+                    XmlSignerPort.SignatureProfile.SII_LEGACY_RSA_SHA1
+            );
+        });
         DteXmlAssemblyService xmlAssembly = new DteXmlAssemblyService(
                 tedGenerator,
-                new DomDteXmlBuilderAdapter()
+                new DomDteXmlBuilderAdapter(),
+                documentSigning
         );
         DteServiceImpl service = new DteServiceImpl(
                 documentRepository,

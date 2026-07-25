@@ -8,6 +8,7 @@ import cl.cesarg.siiproxyHA.domain.model.FolioPool;
 import cl.cesarg.siiproxyHA.domain.model.Tenant;
 import cl.cesarg.siiproxyHA.domain.port.DteXmlBuilderPort;
 import cl.cesarg.siiproxyHA.domain.port.TedGeneratorPort;
+import cl.cesarg.siiproxyHA.domain.port.XmlSignerPort;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -22,6 +23,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -32,12 +34,14 @@ class DteXmlAssemblyServiceTest {
     private TedGeneratorPort tedGenerator;
     @Mock
     private DteXmlBuilderPort xmlBuilder;
+    @Mock
+    private DteDocumentSigningService documentSigning;
 
     private DteXmlAssemblyService service;
 
     @BeforeEach
     void setUp() {
-        service = new DteXmlAssemblyService(tedGenerator, xmlBuilder);
+        service = new DteXmlAssemblyService(tedGenerator, xmlBuilder, documentSigning);
     }
 
     @Test
@@ -64,10 +68,24 @@ class DteXmlAssemblyServiceTest {
                 ArgumentCaptor.forClass(DteXmlBuilderPort.BuildRequest.class);
         when(tedGenerator.generate(tedCaptor.capture())).thenReturn(ted);
         when(xmlBuilder.build(buildCaptor.capture())).thenReturn(expected);
+        when(documentSigning.sign(
+                expected,
+                dte.getTenant().getId(),
+                dte.getRutEnvia()
+        )).thenReturn(new XmlSignerPort.SignedXml(
+                expected.xml(),
+                "#" + expected.documentoId(),
+                XmlSignerPort.SignatureTarget.DOCUMENTO,
+                UUID.randomUUID(),
+                XmlSignerPort.SignatureProfile.SII_LEGACY_RSA_SHA1
+        ));
 
         DteXmlBuilderPort.BuiltDteXml result = service.build(dte);
 
-        assertEquals(expected, result);
+        assertArrayEquals(expected.xml(), result.xml());
+        assertEquals(expected.documentoId(), result.documentoId());
+        assertEquals(expected.setDteId(), result.setDteId());
+        assertEquals(expected.encoding(), result.encoding());
         assertEquals(cafId, tedCaptor.getValue().assignedCafId());
         assertEquals(105, tedCaptor.getValue().folio());
         assertEquals(2, tedCaptor.getValue().puntoVenta());
@@ -75,6 +93,11 @@ class DteXmlAssemblyServiceTest {
         assertEquals("Producto principal", buildCaptor.getValue().items().getFirst().name());
         verify(tedGenerator).generate(tedCaptor.getValue());
         verify(xmlBuilder).build(buildCaptor.getValue());
+        verify(documentSigning).sign(
+                expected,
+                dte.getTenant().getId(),
+                dte.getRutEnvia()
+        );
     }
 
     private Dte dte() {
