@@ -90,6 +90,20 @@ El repositorio incluye una colección y un entorno local:
 
 Importa ambos archivos en Postman y selecciona el entorno `siiproxyHA Local`. También hay archivos XML de ejemplo en `documents/samples/`.
 
+## Operación y certificación SII
+
+- [Runbook operativo de emisión y firma DTE](documents/operations/dte-signing-runbook.md):
+  preparación, custodia de PKCS#12/CAF, emisión, consulta, idempotencia,
+  diagnóstico, recuperación y evidencias.
+- [Plan y checklist de certificación SII](documents/sii/certification.md):
+  proceso oficial, matriz de brechas, gates técnicos y criterios para declarar
+  una certificación.
+
+El alcance actual termina con el `EnvioDTE` firmado y almacenado en estado
+`STORED`. El proyecto todavía no autentica, transmite ni consulta estados ante
+el SII; por eso una prueba local exitosa no equivale a certificación o
+aceptación tributaria.
+
 ## Servicios locales
 
 | Servicio | Dirección | Credenciales predeterminadas |

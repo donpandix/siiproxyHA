@@ -20,6 +20,12 @@ Lo que queda explícitamente fuera (no debe):
 - Soporte de tipos de DTE distintos al 33 (61, 34, 52); diseño preparado para extensión pero sin implementarlos aún.
 - Portal UI de administración (solo API y herramientas CLI/scripts para ops).
 
+La operación del flujo implementado se documenta en
+`documents/operations/dte-signing-runbook.md`. Las etapas oficiales, brechas y
+evidencias necesarias para certificación se mantienen en
+`documents/sii/certification.md`. Ningún estado local, prueba automatizada o
+validación criptográfica debe presentarse como aceptación o certificación SII.
+
 Qué se considera MVP monetizable (se recomienda priorizar):
 
 - Emisión fiable de Factura Electrónica tipo 33 con firma y almacenamiento verificable.
