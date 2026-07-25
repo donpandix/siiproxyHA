@@ -1,6 +1,7 @@
 package cl.cesarg.siiproxyHA.application.service;
 
 import cl.cesarg.siiproxyHA.domain.port.DteXmlBuilderPort;
+import cl.cesarg.siiproxyHA.domain.port.DteXmlValidatorPort;
 import cl.cesarg.siiproxyHA.domain.port.SigningCredentialPort;
 import cl.cesarg.siiproxyHA.domain.port.XmlSignerPort;
 import org.junit.jupiter.api.Test;
@@ -11,6 +12,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -27,6 +29,8 @@ class DteXmlSigningServiceTest {
     private SigningCredentialPort credentials;
     @Mock
     private XmlSignerPort xmlSigner;
+    @Mock
+    private DteXmlValidatorPort xmlValidator;
 
     @Test
     void selectsCredentialOnceAndRecordsBothValidatedSignatures() {
@@ -51,8 +55,9 @@ class DteXmlSigningServiceTest {
         );
         when(credentials.requireSigningCredential(any())).thenReturn(descriptor);
         when(xmlSigner.sign(any())).thenReturn(signedDocument, signedEnvelope);
+        when(xmlValidator.validate(any())).thenReturn(validResult());
         DteXmlSigningService service =
-                new DteXmlSigningService(credentials, xmlSigner);
+                new DteXmlSigningService(credentials, xmlSigner, xmlValidator);
 
         XmlSignerPort.SignedXml result =
                 service.signAll(built, tenantId, "10.438.332-7");
@@ -87,6 +92,7 @@ class DteXmlSigningServiceTest {
                 )
         );
         assertEquals(XmlSignerPort.SignatureTarget.SET_DTE, result.target());
+        verify(xmlValidator).validate(any());
     }
 
     @Test
@@ -100,7 +106,7 @@ class DteXmlSigningServiceTest {
                 "invalid"
         ));
         DteXmlSigningService service =
-                new DteXmlSigningService(credentials, xmlSigner);
+                new DteXmlSigningService(credentials, xmlSigner, xmlValidator);
 
         assertThrows(
                 XmlSignerPort.XmlSigningException.class,
@@ -131,7 +137,7 @@ class DteXmlSigningServiceTest {
                         "invalid envelope"
                 ));
         DteXmlSigningService service =
-                new DteXmlSigningService(credentials, xmlSigner);
+                new DteXmlSigningService(credentials, xmlSigner, xmlValidator);
 
         assertThrows(
                 XmlSignerPort.XmlSigningException.class,
@@ -142,6 +148,56 @@ class DteXmlSigningServiceTest {
                 org.mockito.ArgumentMatchers.eq(credentialId),
                 any(OffsetDateTime.class)
         );
+    }
+
+    @Test
+    void rejectsEnvelopeBeforeRecordingItsUseWhenIntegralValidationFails() {
+        UUID tenantId = UUID.randomUUID();
+        UUID credentialId = UUID.randomUUID();
+        SigningCredentialPort.SigningCredentialDescriptor descriptor =
+                descriptor(tenantId, credentialId);
+        XmlSignerPort.SignedXml signedDocument = new XmlSignerPort.SignedXml(
+                "<document-signed/>".getBytes(StandardCharsets.ISO_8859_1),
+                "#DTE-105",
+                XmlSignerPort.SignatureTarget.DOCUMENTO,
+                credentialId,
+                XmlSignerPort.SignatureProfile.SII_LEGACY_RSA_SHA1
+        );
+        XmlSignerPort.SignedXml signedEnvelope = new XmlSignerPort.SignedXml(
+                "<envelope-signed/>".getBytes(StandardCharsets.ISO_8859_1),
+                "#SetDTE-test",
+                XmlSignerPort.SignatureTarget.SET_DTE,
+                credentialId,
+                XmlSignerPort.SignatureProfile.SII_LEGACY_RSA_SHA1
+        );
+        when(credentials.requireSigningCredential(any())).thenReturn(descriptor);
+        when(xmlSigner.sign(any())).thenReturn(signedDocument, signedEnvelope);
+        when(xmlValidator.validate(any())).thenReturn(
+                new DteXmlValidatorPort.ValidationResult(List.of(
+                        new DteXmlValidatorPort.ValidationIssue(
+                                "XSD_VALIDATION",
+                                "invalid",
+                                DteXmlValidatorPort.ValidationSeverity.ERROR,
+                                "#SetDTE-test"
+                        )
+                ))
+        );
+        DteXmlSigningService service =
+                new DteXmlSigningService(credentials, xmlSigner, xmlValidator);
+
+        assertThrows(
+                DteXmlSigningService.DteXmlValidationException.class,
+                () -> service.signAll(built(), tenantId, "10438332-7")
+        );
+
+        verify(credentials).recordSuccessfulUse(
+                org.mockito.ArgumentMatchers.eq(credentialId),
+                any(OffsetDateTime.class)
+        );
+    }
+
+    private DteXmlValidatorPort.ValidationResult validResult() {
+        return new DteXmlValidatorPort.ValidationResult(List.of());
     }
 
     private DteXmlBuilderPort.BuiltDteXml built() {

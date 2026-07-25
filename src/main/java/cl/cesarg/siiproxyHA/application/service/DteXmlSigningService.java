@@ -1,6 +1,7 @@
 package cl.cesarg.siiproxyHA.application.service;
 
 import cl.cesarg.siiproxyHA.domain.port.DteXmlBuilderPort;
+import cl.cesarg.siiproxyHA.domain.port.DteXmlValidatorPort;
 import cl.cesarg.siiproxyHA.domain.port.SigningCredentialPort;
 import cl.cesarg.siiproxyHA.domain.port.XmlSignerPort;
 import org.springframework.stereotype.Service;
@@ -18,17 +19,20 @@ public class DteXmlSigningService {
 
     private final SigningCredentialPort credentials;
     private final XmlSignerPort xmlSigner;
+    private final DteXmlValidatorPort xmlValidator;
 
     public DteXmlSigningService(
             SigningCredentialPort credentials,
-            XmlSignerPort xmlSigner
+            XmlSignerPort xmlSigner,
+            DteXmlValidatorPort xmlValidator
     ) {
         this.credentials = credentials;
         this.xmlSigner = xmlSigner;
+        this.xmlValidator = xmlValidator;
     }
 
     /**
-     * Signs Documento and SetDTE in order, recording each validated operation.
+     * Signs Documento and SetDTE, then requires integral EnvioDTE validation.
      */
     public XmlSignerPort.SignedXml signAll(
             DteXmlBuilderPort.BuiltDteXml built,
@@ -67,10 +71,35 @@ public class DteXmlSigningService {
                         XmlSignerPort.SignatureProfile.SII_LEGACY_RSA_SHA1
                 )
         );
+        DteXmlValidatorPort.ValidationResult validation = xmlValidator.validate(
+                new DteXmlValidatorPort.ValidationRequest(
+                        signedEnvelope.xml(),
+                        DteXmlValidatorPort.ValidationProfile.ENVIO_DTE
+                )
+        );
+        if (!validation.valid()) {
+            throw new DteXmlValidationException(validation);
+        }
         credentials.recordSuccessfulUse(
                 signedEnvelope.credentialId(),
                 OffsetDateTime.now(ZoneOffset.UTC)
         );
         return signedEnvelope;
+    }
+
+    public static class DteXmlValidationException extends RuntimeException {
+
+        private final DteXmlValidatorPort.ValidationResult validation;
+
+        public DteXmlValidationException(
+                DteXmlValidatorPort.ValidationResult validation
+        ) {
+            super("Generated EnvioDTE failed integral validation");
+            this.validation = Objects.requireNonNull(validation);
+        }
+
+        public DteXmlValidatorPort.ValidationResult getValidation() {
+            return validation;
+        }
     }
 }

@@ -72,6 +72,7 @@ identidades distintas.
 
 ## Límites
 
-- Aún no se ejecuta validación XSD del sobre completo.
+- La validación integral posterior se describe en
+  `14-integral-validation.md`.
 - No se valida cadena de confianza ni revocación X.509.
 - No se modifican endpoints, DTOs HTTP, almacenamiento ni base de datos.
