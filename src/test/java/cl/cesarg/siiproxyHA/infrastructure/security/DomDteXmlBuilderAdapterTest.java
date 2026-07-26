@@ -9,6 +9,7 @@ import cl.cesarg.siiproxyHA.infrastructure.persistence.CafRepository;
 import org.junit.jupiter.api.Test;
 import org.w3c.dom.Document;
 
+import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.ByteArrayInputStream;
 import java.math.BigDecimal;
@@ -51,6 +52,13 @@ class DomDteXmlBuilderAdapterTest {
                 document.getDocumentElement().getNamespaceURI()
         );
         assertEquals(
+                DomDteXmlBuilderAdapter.ENVIO_DTE_SCHEMA_LOCATION,
+                document.getDocumentElement().getAttributeNS(
+                        XMLConstants.W3C_XML_SCHEMA_INSTANCE_NS_URI,
+                        "schemaLocation"
+                )
+        );
+        assertEquals(
                 1,
                 document.getElementsByTagNameNS(
                         DomDteXmlBuilderAdapter.SII_NAMESPACE,
@@ -65,6 +73,8 @@ class DomDteXmlBuilderAdapterTest {
                 ).item(0).getTextContent()
         );
         assertTrue(xml.contains(new String(dd, StandardCharsets.ISO_8859_1)));
+        assertTrue(xml.startsWith(DomDteXmlBuilderAdapter.XML_DECLARATION));
+        assertFalse(xml.contains("standalone="));
         assertFalse(xml.contains("xmlns=\"\""));
         assertFalse(xml.contains("<Signature"));
     }

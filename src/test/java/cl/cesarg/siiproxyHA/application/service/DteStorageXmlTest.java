@@ -166,5 +166,10 @@ class DteStorageXmlTest {
             metadata.setAttemptCount((metadata.getAttemptCount() == null ? 0 : metadata.getAttemptCount()) + 1);
             return true;
         }
+
+        @Override
+        public boolean tryClaimRegeneration(String documentId, OffsetDateTime staleBefore) {
+            return tryClaimStore(documentId, staleBefore);
+        }
     }
 }

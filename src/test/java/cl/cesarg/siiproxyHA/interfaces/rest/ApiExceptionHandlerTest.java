@@ -1,5 +1,6 @@
 package cl.cesarg.siiproxyHA.interfaces.rest;
 
+import cl.cesarg.siiproxyHA.application.exception.DocumentRegenerationConflictException;
 import org.hibernate.exception.ConstraintViolationException;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -28,5 +29,20 @@ class ApiExceptionHandlerTest {
         assertThat(response.getBody()).containsEntry(
                 "message", "A DTE already exists for tenant, tipoDte and folio");
         assertThat(response.getBody().toString()).doesNotContain("sensitive SQL");
+    }
+
+    @Test
+    void mapsConcurrentRegenerationToConflict() {
+        var response = handler.regenerationConflict(
+                new DocumentRegenerationConflictException(
+                        "Signed XML regeneration is already running"
+                )
+        );
+
+        assertThat(response.getStatusCode().value()).isEqualTo(409);
+        assertThat(response.getBody()).containsEntry(
+                "error",
+                "regeneration_conflict"
+        );
     }
 }

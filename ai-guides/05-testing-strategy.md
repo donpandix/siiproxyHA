@@ -29,7 +29,8 @@ Observaciones:
 `DteEmissionIntegrationTest` levanta PostgreSQL y MinIO con Testcontainers y
 ejecuta el flujo HTTP completo: creación de CAF y PKCS#12 efímeros, asignación
 de folio, TED/FRMT, firmas de `Documento` y `SetDTE`, validación integral,
-persistencia de estados, almacenamiento, descarga y replay idempotente.
+persistencia de estados, almacenamiento, descarga, replay idempotente y
+regeneración firmada del mismo artefacto sin consumir otro folio.
 
 Ejecución focalizada:
 
@@ -42,3 +43,9 @@ Ejecución focalizada:
 La prueba requiere Docker y se omite cuando Docker no está disponible. No
 realiza llamadas al ambiente de certificación ni a servicios productivos del
 SII.
+
+## Actualización parcial de empresa
+
+`TenantServicePostgresIntegrationTest` verifica contra PostgreSQL que un `PUT`
+parcial actualice los datos de resolución SII sin escribir `NULL` en los campos
+obligatorios del tenant ni eliminar receptores cuando `receptores` se omite.

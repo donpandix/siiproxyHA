@@ -6,6 +6,49 @@ info:
 servers:
   - url: http://localhost:8080
 paths:
+  /api/v1/tenants/{id}:
+    put:
+      summary: Actualizar parcialmente una empresa
+      description: >
+        Actualiza únicamente los campos no nulos presentes en el cuerpo. Los
+        campos omitidos o nulos conservan su valor actual. Si receptores se
+        omite, conserva la colección; si se envía como lista vacía, elimina
+        sus elementos.
+      tags:
+        - tenants
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TenantUpdateRequest'
+            example:
+              acteco: '726000'
+              email: cesar@cesarg.cl
+              fchResol: '2020-08-14'
+              nroResol: 80
+              active: true
+      responses:
+        '200':
+          description: Empresa actualizada sin alterar campos omitidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantResponse'
+        '400':
+          description: Fecha o número de resolución inválido
+        '404':
+          description: Empresa no encontrada
+        '409':
+          description: Conflicto con una restricción de unicidad
+
   /api/v1/dte:
     post:
       summary: Ingestar un DTE (XML base64)
@@ -86,8 +129,106 @@ paths:
         '404':
           description: Documento no encontrado
 
+  /api/v1/dte/{id}/xml/regenerate:
+    post:
+      summary: Regenerar, firmar y almacenar nuevamente el XML de un DTE existente
+      description: >
+        Reconstruye el EnvioDTE desde el snapshot persistido, conserva el folio
+        y la asignación CAF, firma Documento y SetDTE con la credencial vigente,
+        reemplaza el artefacto bajo el mismo objectKey y actualiza checksum,
+        tamaño, estado e historial.
+      tags:
+        - dte
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: XML firmado regenerado y almacenado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DteStatusResponse'
+        '400':
+          description: El identificador no es un UUID válido
+        '404':
+          description: DTE no encontrado
+        '409':
+          description: Ya existe una regeneración activa o el estado no permite regenerar
+        '503':
+          description: No fue posible almacenar el XML regenerado
+
 components:
   schemas:
+    TenantUpdateRequest:
+      type: object
+      description: Todos los campos son opcionales y solo se actualizan si contienen un valor no nulo.
+      properties:
+        tenantCode:
+          type: string
+          maxLength: 50
+        rutEmisor:
+          type: string
+          maxLength: 12
+        razonSocial:
+          type: string
+          maxLength: 100
+        giro:
+          type: string
+          maxLength: 80
+        acteco:
+          type: string
+          maxLength: 6
+        direccion:
+          type: string
+          maxLength: 70
+        comuna:
+          type: string
+          maxLength: 20
+        ciudad:
+          type: string
+          maxLength: 20
+        email:
+          type: string
+          maxLength: 80
+        fchResol:
+          type: string
+          format: date
+          description: Fecha de resolución SII en formato YYYY-MM-DD.
+        nroResol:
+          type: integer
+          minimum: 0
+          maximum: 999999
+        active:
+          type: boolean
+        receptores:
+          type: array
+          description: Omitir para conservar; enviar una lista vacía para eliminar todos.
+          items:
+            type: object
+
+    TenantResponse:
+      allOf:
+        - $ref: '#/components/schemas/TenantUpdateRequest'
+        - type: object
+          required:
+            - id
+            - tenantCode
+            - rutEmisor
+            - razonSocial
+            - active
+          properties:
+            id:
+              type: string
+              format: uuid
+            createdAt:
+              type: string
+              format: date-time
+
     DteRequest:
       type: object
       required:

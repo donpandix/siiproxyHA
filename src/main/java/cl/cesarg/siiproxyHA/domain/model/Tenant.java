@@ -2,6 +2,7 @@ package cl.cesarg.siiproxyHA.domain.model;
 
 import jakarta.persistence.*;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -43,6 +44,7 @@ public class Tenant {
     private String email;
 
     @Column(name = "fch_resol")
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
     private LocalDate fchResol;
 
     @Column(name = "nro_resol")

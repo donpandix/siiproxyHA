@@ -184,5 +184,10 @@ class DteStorageStateTest {
             metadata.setUpdatedAt(OffsetDateTime.now());
             return true;
         }
+
+        @Override
+        public boolean tryClaimRegeneration(String documentId, OffsetDateTime staleBefore) {
+            return tryClaimStore(documentId, staleBefore);
+        }
     }
 }

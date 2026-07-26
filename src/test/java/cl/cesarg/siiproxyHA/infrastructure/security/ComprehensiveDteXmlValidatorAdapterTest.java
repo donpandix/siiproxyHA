@@ -81,6 +81,23 @@ class ComprehensiveDteXmlValidatorAdapterTest {
     }
 
     @Test
+    void rejectsEnvioDteWithoutDeclaredSchemaLocation() throws Exception {
+        String valid = new String(signedEnvioDte(), StandardCharsets.ISO_8859_1);
+        String missingSchemaLocation = valid.replace(
+                " xsi:schemaLocation=\""
+                        + DomDteXmlBuilderAdapter.ENVIO_DTE_SCHEMA_LOCATION
+                        + "\"",
+                ""
+        );
+
+        DteXmlValidatorPort.ValidationResult result = validate(
+                missingSchemaLocation.getBytes(StandardCharsets.ISO_8859_1)
+        );
+
+        assertTrue(hasCode(result, "SCHEMA_LOCATION"), () -> result.issues().toString());
+    }
+
+    @Test
     void rejectsDoctypeWithoutResolvingExternalEntities() {
         byte[] xml = """
                 <?xml version="1.0" encoding="ISO-8859-1"?>

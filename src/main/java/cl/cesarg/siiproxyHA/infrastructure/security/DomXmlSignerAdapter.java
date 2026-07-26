@@ -498,10 +498,14 @@ public class DomXmlSignerAdapter implements XmlSignerPort {
         factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_STYLESHEET, "");
         Transformer transformer = factory.newTransformer();
         transformer.setOutputProperty(OutputKeys.ENCODING, XML_ENCODING);
-        transformer.setOutputProperty(OutputKeys.STANDALONE, "no");
         transformer.setOutputProperty(OutputKeys.INDENT, "no");
-        transformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "no");
+        transformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes");
         try (ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            output.writeBytes(
+                    DomDteXmlBuilderAdapter.XML_DECLARATION.getBytes(
+                            StandardCharsets.ISO_8859_1
+                    )
+            );
             transformer.transform(new DOMSource(document), new StreamResult(output));
             return output.toByteArray();
         } catch (Exception exception) {

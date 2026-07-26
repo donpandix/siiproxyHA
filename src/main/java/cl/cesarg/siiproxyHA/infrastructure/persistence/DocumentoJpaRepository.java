@@ -29,4 +29,27 @@ public interface DocumentoJpaRepository extends JpaRepository<DocumentoEntity, L
     int claimStore(@Param("documentId") String documentId,
                    @Param("now") OffsetDateTime now,
                    @Param("staleBefore") OffsetDateTime staleBefore);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Transactional
+    @Query("""
+            update DocumentoEntity document
+               set document.status = 'PENDING_STORE',
+                   document.attemptCount = coalesce(document.attemptCount, 0) + 1,
+                   document.lastError = null,
+                   document.updatedAt = :now
+             where document.documentId = :documentId
+               and (
+                    document.status in (
+                        'RECEIVED',
+                        'STORED',
+                        'FAILED_RECOVERABLE',
+                        'FAILED_FATAL'
+                    )
+                    or (document.status = 'PENDING_STORE' and document.updatedAt < :staleBefore)
+               )
+            """)
+    int claimRegeneration(@Param("documentId") String documentId,
+                          @Param("now") OffsetDateTime now,
+                          @Param("staleBefore") OffsetDateTime staleBefore);
 }

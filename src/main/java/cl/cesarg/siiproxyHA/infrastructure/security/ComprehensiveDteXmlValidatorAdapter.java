@@ -235,6 +235,17 @@ public class ComprehensiveDteXmlValidatorAdapter implements DteXmlValidatorPort 
             ));
             return;
         }
+        String schemaLocation = root.getAttributeNS(
+                DomDteXmlBuilderAdapter.XSI_NAMESPACE,
+                "schemaLocation"
+        );
+        if (!DomDteXmlBuilderAdapter.ENVIO_DTE_SCHEMA_LOCATION.equals(schemaLocation)) {
+            issues.add(error(
+                    "SCHEMA_LOCATION",
+                    "EnvioDTE must declare the supported SII schema location",
+                    null
+            ));
+        }
         List<Element> setDtes = directChildren(root, SII_NAMESPACE, "SetDTE");
         List<Element> envelopeSignatures =
                 directChildren(root, DSIG_NAMESPACE, "Signature");

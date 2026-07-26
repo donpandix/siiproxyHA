@@ -79,9 +79,26 @@ class DocumentoRepositoryPostgresIntegrationTest {
         assertThat(stored.getSha256()).isEqualTo("a".repeat(64));
         assertThat(stored.getSizeBytes()).isEqualTo(123L);
         assertThat(repository.tryClaimStore(documentId, OffsetDateTime.now())).isFalse();
+        assertThat(repository.tryClaimRegeneration(
+                documentId,
+                OffsetDateTime.now().minusMinutes(5)
+        )).isTrue();
+
+        DocumentMetadata regenerating = repository.findByDocumentId(documentId).orElseThrow();
+        assertThat(regenerating.getStatus()).isEqualTo(DocumentStatus.PENDING_STORE);
+        assertThat(regenerating.getAttemptCount()).isEqualTo(2);
+        regenerating.setStatus(DocumentStatus.STORED);
+        regenerating.setSha256("b".repeat(64));
+        repository.save(regenerating);
 
         var transitions = historyRepository.findByDocumentIdOrderByCreatedAtAsc(documentId);
         assertThat(transitions).extracting(DocumentProcessingHistoryEntity::getToState)
-                .containsExactly("RECEIVED", "PENDING_STORE", "STORED");
+                .containsExactly(
+                        "RECEIVED",
+                        "PENDING_STORE",
+                        "STORED",
+                        "PENDING_STORE",
+                        "STORED"
+                );
     }
 }

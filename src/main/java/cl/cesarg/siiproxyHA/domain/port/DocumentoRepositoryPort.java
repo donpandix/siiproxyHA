@@ -9,4 +9,5 @@ public interface DocumentoRepositoryPort {
     DocumentMetadata createIfAbsent(DocumentMetadata meta);
     Optional<DocumentMetadata> findByDocumentId(String documentId);
     boolean tryClaimStore(String documentId, OffsetDateTime staleBefore);
+    boolean tryClaimRegeneration(String documentId, OffsetDateTime staleBefore);
 }

@@ -223,6 +223,34 @@ curl --fail \
   -o "local-secrets/${DOCUMENT_ID}.xml"
 ```
 
+## Regenerar un XML firmado existente
+
+Cuando cambie el formato de construcción, se corrija una incompatibilidad o se
+rote la credencial firmante, regenerar el artefacto sin crear otro DTE:
+
+```bash
+curl --fail-with-body \
+  -X POST \
+  "http://localhost:8080/api/v1/dte/${DOCUMENT_ID}/xml/regenerate"
+```
+
+La operación:
+
+- exige que el DTE conserve su asignación de folio, pool y CAF;
+- no asigna otro folio ni modifica el snapshot tributario;
+- vuelve a generar TED/FRMT y las firmas de `Documento` y `SetDTE`;
+- usa la credencial activa vigente para el `RutEnvia` persistido;
+- valida integralmente el nuevo `EnvioDTE`;
+- reemplaza el objeto bajo el mismo `objectKey`;
+- incrementa `attemptCount` y registra las transiciones en
+  `processing_history`.
+
+Un `409` indica que hay otra regeneración activa o que el estado actual no
+admite la operación. Un claim `PENDING_STORE` puede recuperarse después de
+cinco minutos. Después de una respuesta `200`, descargar nuevamente el XML y
+usar el nuevo `sha256`; una copia obtenida antes de la regeneración queda
+obsoleta.
+
 ## Idempotencia y reintentos
 
 - El cliente debe generar un `id` estable antes del primer envío.

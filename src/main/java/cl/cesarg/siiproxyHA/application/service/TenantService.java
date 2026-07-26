@@ -42,7 +42,7 @@ public class TenantService {
         t.setEmail(dto.getEmail());
         t.setFchResol(dto.getFchResol());
         t.setNroResol(dto.getNroResol());
-        t.setActive(dto.isActive());
+        t.setActive(dto.getActive() == null || dto.getActive());
         t.setCreatedAt(Instant.now());
 
         if (dto.getReceptores() != null) {
@@ -71,23 +71,49 @@ public class TenantService {
 
     public Optional<Tenant> get(UUID id) { return tenantRepository.findById(id); }
 
+    /**
+     * Applies only fields present in the request, preserving omitted tenant data and receptors.
+     */
     @Transactional
     public Optional<Tenant> update(UUID id, TenantDto dto) {
         return tenantRepository.findById(id).map(existing -> {
-            existing.setTenantCode(dto.getTenantCode());
-            existing.setRutEmisor(dto.getRutEmisor());
-            existing.setRazonSocial(dto.getRazonSocial());
-            existing.setGiro(dto.getGiro());
-            existing.setActeco(dto.getActeco());
-            existing.setDireccion(dto.getDireccion());
-            existing.setComuna(dto.getComuna());
-            existing.setCiudad(dto.getCiudad());
-            existing.setEmail(dto.getEmail());
-            existing.setFchResol(dto.getFchResol());
-            existing.setNroResol(dto.getNroResol());
-            existing.setActive(dto.isActive());
+            if (dto.getTenantCode() != null) {
+                existing.setTenantCode(dto.getTenantCode());
+            }
+            if (dto.getRutEmisor() != null) {
+                existing.setRutEmisor(dto.getRutEmisor());
+            }
+            if (dto.getRazonSocial() != null) {
+                existing.setRazonSocial(dto.getRazonSocial());
+            }
+            if (dto.getGiro() != null) {
+                existing.setGiro(dto.getGiro());
+            }
+            if (dto.getActeco() != null) {
+                existing.setActeco(dto.getActeco());
+            }
+            if (dto.getDireccion() != null) {
+                existing.setDireccion(dto.getDireccion());
+            }
+            if (dto.getComuna() != null) {
+                existing.setComuna(dto.getComuna());
+            }
+            if (dto.getCiudad() != null) {
+                existing.setCiudad(dto.getCiudad());
+            }
+            if (dto.getEmail() != null) {
+                existing.setEmail(dto.getEmail());
+            }
+            if (dto.getFchResol() != null) {
+                existing.setFchResol(dto.getFchResol());
+            }
+            if (dto.getNroResol() != null) {
+                existing.setNroResol(dto.getNroResol());
+            }
+            if (dto.getActive() != null) {
+                existing.setActive(dto.getActive());
+            }
 
-            // replace receptors if provided
             if (dto.getReceptores() != null) {
                 existing.getReceptores().clear();
                 List<Receptor> recs = dto.getReceptores().stream().map(rdto -> {

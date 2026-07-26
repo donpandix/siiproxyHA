@@ -48,6 +48,7 @@ cadena de confianza oficial del SII que el proyecto todavía no configura.
 
 El perfil `ENVIO_DTE` exige:
 
+- `xsi:schemaLocation` exacto para `EnvioDTE_v10.xsd`;
 - un `SetDTE` seguido por su firma;
 - cada `DTE` con un `Documento` seguido por su firma;
 - IDs presentes y globalmente únicos;
@@ -74,6 +75,7 @@ cuando está disponible. Entre los códigos principales:
 - `XML_PARSE`;
 - `XML_TOO_LARGE`;
 - `XSD_VALIDATION`;
+- `SCHEMA_LOCATION`;
 - `ID_NOT_UNIQUE`;
 - `TED_FRMT_INVALID`;
 - `XML_SIGNATURE_INVALID`;

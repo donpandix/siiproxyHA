@@ -39,7 +39,11 @@ public class DomDteXmlBuilderAdapter implements DteXmlBuilderPort {
 
     public static final String SII_NAMESPACE = "http://www.sii.cl/SiiDte";
     public static final String XSI_NAMESPACE = XMLConstants.W3C_XML_SCHEMA_INSTANCE_NS_URI;
+    public static final String ENVIO_DTE_SCHEMA_LOCATION =
+            SII_NAMESPACE + " EnvioDTE_v10.xsd";
     public static final String XML_ENCODING = "ISO-8859-1";
+    public static final String XML_DECLARATION =
+            "<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\n";
     private static final DateTimeFormatter SII_TIMESTAMP =
             DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
 
@@ -62,6 +66,11 @@ public class DomDteXmlBuilderAdapter implements DteXmlBuilderPort {
                     XMLConstants.XMLNS_ATTRIBUTE_NS_URI,
                     "xmlns:xsi",
                     XSI_NAMESPACE
+            );
+            envioDte.setAttributeNS(
+                    XSI_NAMESPACE,
+                    "xsi:schemaLocation",
+                    ENVIO_DTE_SCHEMA_LOCATION
             );
             envioDte.setAttribute("version", "1.0");
             document.appendChild(envioDte);
@@ -334,11 +343,11 @@ public class DomDteXmlBuilderAdapter implements DteXmlBuilderPort {
         factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_STYLESHEET, "");
         Transformer transformer = factory.newTransformer();
         transformer.setOutputProperty(OutputKeys.ENCODING, XML_ENCODING);
-        transformer.setOutputProperty(OutputKeys.STANDALONE, "no");
         transformer.setOutputProperty(OutputKeys.INDENT, "no");
-        transformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "no");
+        transformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes");
 
         try (ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            output.writeBytes(XML_DECLARATION.getBytes(StandardCharsets.ISO_8859_1));
             transformer.transform(new DOMSource(document), new StreamResult(output));
             return output.toByteArray();
         }

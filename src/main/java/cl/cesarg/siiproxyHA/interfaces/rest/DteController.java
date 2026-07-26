@@ -3,6 +3,7 @@ package cl.cesarg.siiproxyHA.interfaces.rest;
 import cl.cesarg.siiproxyHA.application.dto.DteIngestPayload;
 import cl.cesarg.siiproxyHA.application.service.DteIngestService;
 import cl.cesarg.siiproxyHA.application.service.DteService;
+import cl.cesarg.siiproxyHA.application.service.DteXmlRegenerationService;
 import cl.cesarg.siiproxyHA.domain.model.DocumentMetadata;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpHeaders;
@@ -26,11 +27,14 @@ public class DteController {
 
     private final DteService dteService;
     private final DteIngestService dteIngestService;
+    private final DteXmlRegenerationService regenerationService;
 
     public DteController(DteService dteService,
-                         DteIngestService dteIngestService) {
+                         DteIngestService dteIngestService,
+                         DteXmlRegenerationService regenerationService) {
         this.dteService = dteService;
         this.dteIngestService = dteIngestService;
+        this.regenerationService = regenerationService;
     }
 
     @PostMapping
@@ -42,6 +46,13 @@ public class DteController {
     public ResponseEntity<DocumentMetadata> status(@PathVariable("id") String id) throws Exception {
         DocumentMetadata meta = dteService.getStatus(id);
         return ResponseEntity.ok(meta);
+    }
+
+    @PostMapping("/{id}/xml/regenerate")
+    public ResponseEntity<DocumentMetadata> regenerateXml(
+            @PathVariable("id") String id
+    ) throws Exception {
+        return ResponseEntity.ok(regenerationService.regenerate(id));
     }
 
     @GetMapping("/{id}/xml")

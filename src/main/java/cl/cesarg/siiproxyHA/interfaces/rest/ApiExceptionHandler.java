@@ -2,6 +2,7 @@ package cl.cesarg.siiproxyHA.interfaces.rest;
 
 import cl.cesarg.siiproxyHA.application.exception.ResourceNotFoundException;
 import cl.cesarg.siiproxyHA.application.exception.ObjectStorageException;
+import cl.cesarg.siiproxyHA.application.exception.DocumentRegenerationConflictException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.http.HttpStatus;
@@ -44,6 +45,16 @@ public class ApiExceptionHandler {
     public ResponseEntity<Map<String, String>> badRequest(IllegalArgumentException exception) {
         return ResponseEntity.badRequest().body(Map.of(
                 "error", "invalid_request",
+                "message", exception.getMessage()
+        ));
+    }
+
+    @ExceptionHandler(DocumentRegenerationConflictException.class)
+    public ResponseEntity<Map<String, String>> regenerationConflict(
+            DocumentRegenerationConflictException exception
+    ) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(
+                "error", "regeneration_conflict",
                 "message", exception.getMessage()
         ));
     }

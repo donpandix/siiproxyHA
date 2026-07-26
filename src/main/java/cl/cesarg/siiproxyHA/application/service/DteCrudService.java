@@ -57,9 +57,11 @@ public class DteCrudService {
     @Transactional(readOnly = true)
     public Optional<Dte> findForStorage(UUID id, UUID tenantId) {
         return findByIdAndTenantId(id, tenantId).map(dte -> {
-            dte.getTenant().getId();
+            // Access a non-identifier property so Hibernate fully initializes the
+            // tenant snapshot required by XML generation after this transaction.
+            dte.getTenant().getRutEmisor();
             if (dte.getReceptor() != null) {
-                dte.getReceptor().getId();
+                dte.getReceptor().getRutReceptor();
             }
             if (dte.getFolioAssignment() != null) {
                 dte.getFolioAssignment().getPuntoVenta();

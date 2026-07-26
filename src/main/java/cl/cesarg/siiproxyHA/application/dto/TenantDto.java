@@ -1,6 +1,9 @@
 package cl.cesarg.siiproxyHA.application.dto;
 
-import java.util.ArrayList;
+import com.fasterxml.jackson.annotation.JsonFormat;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+
 import java.util.List;
 import java.util.UUID;
 import java.time.LocalDate;
@@ -16,10 +19,13 @@ public class TenantDto {
     private String comuna;
     private String ciudad;
     private String email;
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
     private LocalDate fchResol;
+    @Min(value = 0, message = "nroResol must be greater than or equal to 0")
+    @Max(value = 999999, message = "nroResol must have at most 6 digits")
     private Integer nroResol;
-    private boolean active = true;
-    private List<ReceptorDto> receptores = new ArrayList<>();
+    private Boolean active;
+    private List<ReceptorDto> receptores;
 
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
@@ -45,8 +51,8 @@ public class TenantDto {
     public void setFchResol(LocalDate fchResol) { this.fchResol = fchResol; }
     public Integer getNroResol() { return nroResol; }
     public void setNroResol(Integer nroResol) { this.nroResol = nroResol; }
-    public boolean isActive() { return active; }
-    public void setActive(boolean active) { this.active = active; }
+    public Boolean getActive() { return active; }
+    public void setActive(Boolean active) { this.active = active; }
     public List<ReceptorDto> getReceptores() { return receptores; }
     public void setReceptores(List<ReceptorDto> receptores) { this.receptores = receptores; }
 }

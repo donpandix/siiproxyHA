@@ -72,7 +72,16 @@ Pasos rápidos:
    - Los detalles de `items` no requieren un producto previamente registrado; el servidor genera el identificador interno de cada línea.
    - La colección guardará el `documentId` (o `id`) en la variable `documentId` del environment si la respuesta contiene el campo.
 5. Ejecutar `GET Document Status` y `GET Document XML (presigned)` usando la variable `{{documentId}}`.
+6. Si cambia el formato de generación o se rota la credencial, ejecutar
+   `POST Regenerate Signed XML`. La operación conserva DTE, folio y CAF,
+   reemplaza el XML en el mismo `objectKey` y actualiza sus metadatos.
 
 Notas:
+- `PUT Partial Update Tenant` modifica solamente los campos enviados. Omitir
+  `receptores` conserva la colección actual; enviar `"receptores": []` la vacía.
+- `fchResol` usa el formato `YYYY-MM-DD` y `nroResol` acepta valores entre
+  `0` y `999999`.
 - `rutEmisor` y los demás datos del emisor siempre se leen desde el tenant registrado; `POST /api/v1/dte` no los modifica.
 - `POST /api/v1/dte` almacena el `EnvioDTE` y responde metadatos con estado `STORED`.
+- La regeneración responde `409` si existe otra operación activa y no debe
+  utilizarse para modificar los datos tributarios del DTE persistido.

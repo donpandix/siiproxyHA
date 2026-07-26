@@ -94,6 +94,25 @@ public class DocumentoRepositoryAdapter implements DocumentoRepositoryPort {
         return claimed;
     }
 
+    @Override
+    public boolean tryClaimRegeneration(String documentId, OffsetDateTime staleBefore) {
+        Optional<DocumentoEntity> before = jpa.findByDocumentId(documentId);
+        boolean claimed = jpa.claimRegeneration(
+                documentId,
+                OffsetDateTime.now(),
+                staleBefore
+        ) == 1;
+        if (claimed) {
+            recordTransition(
+                    documentId,
+                    before.map(DocumentoEntity::getStatus).orElse(null),
+                    DocumentStatus.PENDING_STORE.name(),
+                    "Signed XML regeneration claimed"
+            );
+        }
+        return claimed;
+    }
+
     private DocumentMetadata saveAndFlush(DocumentMetadata meta) {
         DocumentoEntity entity = new DocumentoEntity();
         entity.setDocumentId(meta.getDocumentId());

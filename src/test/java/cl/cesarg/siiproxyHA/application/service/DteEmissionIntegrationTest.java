@@ -139,7 +139,7 @@ class DteEmissionIntegrationTest {
     private DteXmlValidatorPort xmlValidator;
 
     @Test
-    void emitsSignsStoresDownloadsAndReplaysOneDteIdempotently() throws Exception {
+    void emitsStoresReplaysAndRegeneratesOneSignedDte() throws Exception {
         Tenant tenant = persistTenant();
         CafTestFixtureFactory.Fixture cafFixture = CafTestFixtureFactory.create();
         cafService.create(tenant.getId(), 1, cafFixture.xml(), "integration-caf.xml");
@@ -183,11 +183,34 @@ class DteEmissionIntegrationTest {
         assertThat(replay.path("sha256").asText()).isEqualTo(sha256(storedXml));
         assertThat(replay.path("attemptCount").asInt()).isEqualTo(1);
 
+        JsonNode regenerated = objectMapper.readTree(mockMvc.perform(post(
+                        "/api/v1/dte/{id}/xml/regenerate",
+                        documentId
+                ))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsByteArray());
+        assertThat(regenerated.path("documentId").asText())
+                .isEqualTo(documentId.toString());
+        assertThat(regenerated.path("status").asText())
+                .isEqualTo(DocumentStatus.STORED.name());
+        assertThat(regenerated.path("objectKey").asText()).isEqualTo(expectedKey);
+        assertThat(regenerated.path("attemptCount").asInt()).isEqualTo(2);
+
+        byte[] regeneratedXml = storage.get(expectedKey);
+        assertThat(regeneratedXml).isNotEmpty();
+        assertThat(sha256(regeneratedXml))
+                .isEqualTo(regenerated.path("sha256").asText());
+        assertThat(regenerated.path("sizeBytes").asLong())
+                .isEqualTo(regeneratedXml.length);
+        assertIntegralXml(regeneratedXml, documentId);
+
         assertPersistenceAndIdempotency(documentId, certificateId, expectedKey);
         mockMvc.perform(get("/api/v1/dte/{id}/status", documentId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value(DocumentStatus.STORED.name()))
-                .andExpect(jsonPath("$.attemptCount").value(1))
+                .andExpect(jsonPath("$.attemptCount").value(2))
                 .andExpect(jsonPath("$.objectKey").value(expectedKey));
     }
 
@@ -306,7 +329,14 @@ class DteEmissionIntegrationTest {
         assertThat(validation.issues()).isEmpty();
 
         String encoded = new String(xml, java.nio.charset.StandardCharsets.ISO_8859_1);
+        assertThat(encoded).startsWith(
+                "<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\n<EnvioDTE"
+        );
+        assertThat(encoded).doesNotContain("standalone=");
         assertThat(encoded).contains("<EnvioDTE");
+        assertThat(encoded).contains(
+                "xsi:schemaLocation=\"http://www.sii.cl/SiiDte EnvioDTE_v10.xsd\""
+        );
         assertThat(encoded).contains("<FRMT algoritmo=\"SHA1withRSA\">");
         assertThat(encoded).contains("URI=\"#DTE-" + CafTestFixtureFactory.FOLIO_DESDE + "\"");
         assertThat(encoded).contains("URI=\"#SetDTE-" + documentId + "\"");
@@ -322,17 +352,23 @@ class DteEmissionIntegrationTest {
         var metadata = metadataRepository.findByDocumentId(documentId.toString()).orElseThrow();
         assertThat(metadata.getStatus()).isEqualTo(DocumentStatus.STORED);
         assertThat(metadata.getObjectKey()).isEqualTo(expectedKey);
-        assertThat(metadata.getAttemptCount()).isEqualTo(1);
+        assertThat(metadata.getAttemptCount()).isEqualTo(2);
 
         var transitions = historyRepository.findByDocumentIdOrderByCreatedAtAsc(
                 documentId.toString()
         );
         assertThat(transitions)
                 .extracting(DocumentProcessingHistoryEntity::getToState)
-                .containsExactly("RECEIVED", "PENDING_STORE", "STORED");
+                .containsExactly(
+                        "RECEIVED",
+                        "PENDING_STORE",
+                        "STORED",
+                        "PENDING_STORE",
+                        "STORED"
+                );
 
         var credential = certificateRepository.findById(certificateId).orElseThrow();
-        assertThat(credential.getUsageCount()).isEqualTo(2);
+        assertThat(credential.getUsageCount()).isEqualTo(4);
         assertThat(credential.getLastUsedAt()).isNotNull();
     }
 

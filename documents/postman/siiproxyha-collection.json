@@ -102,6 +102,41 @@
           }
         },
         {
+          "name": "POST Regenerate Signed XML",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/dte/{{documentId}}/xml/regenerate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dte",
+                "{{documentId}}",
+                "xml",
+                "regenerate"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if(pm.response.code===200){",
+                  "  var res = pm.response.json();",
+                  "  if(res.documentId) pm.environment.set('documentId', res.documentId);",
+                  "  if(res.objectKey) pm.environment.set('objectKey', res.objectKey);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "GET List DTE",
           "request": {
             "method": "GET",
@@ -333,13 +368,13 @@
           ]
         },
         {
-          "name": "PUT Update Tenant",
+          "name": "PUT Partial Update Tenant",
           "request": {
             "method": "PUT",
             "header": [ { "key": "Content-Type", "value": "application/json" } ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"tenantCode\": \"acme\",\n  \"rutEmisor\": \"76184688-4\",\n  \"razonSocial\": \"ACME S.A. - actualizado\",\n  \"email\": \"nuevo@acme.test\",\n  \"active\": true\n}"
+              "raw": "{\n  \"acteco\": \"726000\",\n  \"email\": \"cesar@cesarg.cl\",\n  \"fchResol\": \"2020-08-14\",\n  \"nroResol\": 80,\n  \"active\": true\n}"
             },
             "url": { "raw": "{{baseUrl}}/api/v1/tenants/{{tenantId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","tenants","{{tenantId}}"] }
           }

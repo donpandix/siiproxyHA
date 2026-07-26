@@ -30,6 +30,16 @@ Todos los elementos pertenecen explícitamente al namespace
 marcan como tipo ID en el DOM y se retornan junto al XML para que la etapa
 XMLDSig use referencias internas inequívocas.
 
+La raíz declara explícitamente:
+
+```xml
+xsi:schemaLocation="http://www.sii.cl/SiiDte EnvioDTE_v10.xsd"
+```
+
+La declaración es obligatoria para que el receptor SII identifique el schema
+del envío; validar contra un XSD elegido externamente no demuestra que el XML
+declare este nombre.
+
 La marca DOM de tipo ID no sobrevive a la serialización; el futuro adaptador
 XMLDSig deberá volver a registrar el atributo después de parsear los bytes,
 usando los identificadores retornados por este contrato.
@@ -61,8 +71,9 @@ haya quedado inválido silenciosamente.
 ## Serialización
 
 - codificación: `ISO-8859-1`;
-- declaración XML incluida;
-- `standalone="no"`;
+- declaración XML exacta en la primera línea;
+- `EnvioDTE` comienza en la segunda línea;
+- no se emite el atributo `standalone`;
 - sin indentación automática;
 - acceso externo de Transformer deshabilitado.
 
