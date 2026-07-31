@@ -9,12 +9,15 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 import java.util.UUID;
 
 @Component
 public class SiiUploadClient implements SiiUploadPort {
 
     private static final byte[] CRLF = "\r\n".getBytes(StandardCharsets.ISO_8859_1);
+    private static final String SII_PROGRAMMATIC_USER_AGENT =
+            "Mozilla/4.0 (compatible; PROG 1.0; siiproxyHA)";
     private final HttpClient httpClient;
     private final SiiProperties properties;
 
@@ -29,11 +32,15 @@ public class SiiUploadClient implements SiiUploadPort {
         String boundary = "----siiproxyHA-" + UUID.randomUUID();
         byte[] body = multipart(request, boundary);
         try {
-            HttpRequest httpRequest = HttpRequest.newBuilder(
-                            properties.endpoints(request.environment()).getUploadUrl()
-                    )
+            java.net.URI uploadUri =
+                    properties.endpoints(request.environment()).getUploadUrl();
+            HttpRequest httpRequest = HttpRequest.newBuilder(uploadUri)
                     .timeout(properties.getRequestTimeout())
-                    .header("User-Agent", "siiproxyHA/1.0")
+                    .header("Accept", "*/*")
+                    .header("Accept-Language", "es-cl")
+                    .header("Cache-Control", "no-cache")
+                    .header("Referer", origin(uploadUri))
+                    .header("User-Agent", SII_PROGRAMMATIC_USER_AGENT)
                     .header("Cookie", "TOKEN=" + request.token())
                     .header("Content-Type", "multipart/form-data; boundary=" + boundary)
                     .POST(HttpRequest.BodyPublishers.ofByteArray(body))
@@ -58,6 +65,15 @@ public class SiiUploadClient implements SiiUploadPort {
     }
 
     private UploadResult parse(int httpStatus, byte[] response) {
+        if (isHtml(response)) {
+            return new UploadResult(
+                    httpStatus,
+                    null,
+                    null,
+                    "SII upload returned HTML instead of the expected XML response",
+                    response
+            );
+        }
         try {
             Document document = SiiXmlSupport.parse(response);
             String status = SiiXmlSupport.firstText(document, "STATUS");
@@ -82,6 +98,25 @@ public class SiiUploadClient implements SiiUploadPort {
                     response
             );
         }
+    }
+
+    private boolean isHtml(byte[] response) {
+        if (response == null || response.length == 0) {
+            return false;
+        }
+        String prefix = new String(
+                response,
+                0,
+                Math.min(response.length, 512),
+                StandardCharsets.ISO_8859_1
+        ).stripLeading().toLowerCase(Locale.ROOT);
+        return prefix.startsWith("<!doctype html")
+                || prefix.startsWith("<html")
+                || prefix.contains("<html>");
+    }
+
+    private String origin(java.net.URI uri) {
+        return uri.getScheme() + "://" + uri.getAuthority() + "/";
     }
 
     private byte[] multipart(UploadRequest request, String boundary) {
