@@ -38,6 +38,7 @@ public class DocumentoRepositoryAdapter implements DocumentoRepositoryPort {
         e.setSizeBytes(meta.getSizeBytes());
         e.setAttemptCount(meta.getAttemptCount() == null ? 0 : meta.getAttemptCount());
         e.setLastError(meta.getLastError());
+        e.setSigningCredentialId(meta.getSigningCredentialId());
         e.setCreatedAt(meta.getCreatedAt() == null ? OffsetDateTime.now() : meta.getCreatedAt());
         e.setUpdatedAt(OffsetDateTime.now());
         DocumentoEntity saved = jpa.save(e);
@@ -72,6 +73,7 @@ public class DocumentoRepositoryAdapter implements DocumentoRepositoryPort {
             m.setSizeBytes(e.getSizeBytes());
             m.setAttemptCount(e.getAttemptCount());
             m.setLastError(e.getLastError());
+            m.setSigningCredentialId(e.getSigningCredentialId());
             m.setFolio(e.getFolio());
             m.setCreatedAt(e.getCreatedAt());
             m.setUpdatedAt(e.getUpdatedAt());
@@ -123,6 +125,7 @@ public class DocumentoRepositoryAdapter implements DocumentoRepositoryPort {
         entity.setSizeBytes(meta.getSizeBytes());
         entity.setAttemptCount(meta.getAttemptCount() == null ? 0 : meta.getAttemptCount());
         entity.setLastError(meta.getLastError());
+        entity.setSigningCredentialId(meta.getSigningCredentialId());
         entity.setCreatedAt(meta.getCreatedAt() == null ? OffsetDateTime.now() : meta.getCreatedAt());
         entity.setUpdatedAt(meta.getUpdatedAt() == null ? OffsetDateTime.now() : meta.getUpdatedAt());
         DocumentoEntity saved = jpa.saveAndFlush(entity);

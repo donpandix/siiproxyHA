@@ -57,15 +57,26 @@ dte:
   xsd-path: classpath:xsd
   signing-zone: ${DTE_SIGNING_ZONE:America/Santiago}
 
-# SII token configuration (placeholder values)
 sii:
-  seed-url: https://palena.sii.cl/DTEWS/CrSeed.jws
-  token-url: https://palena.sii.cl/DTEWS/GetTokenFromSeed.jws
-  upload-url: https://palena.sii.cl/cgi_dte/UPL/DTEUpload
-  certs-folder: classpath:certs
+  environment: ${SII_ENVIRONMENT:CERTIFICATION}
+  production-enabled: ${SII_PRODUCTION_ENABLED:false}
+  worker-enabled: ${SII_WORKER_ENABLED:true}
+  connect-timeout: ${SII_CONNECT_TIMEOUT:10s}
+  request-timeout: ${SII_REQUEST_TIMEOUT:30s}
+  token-ttl: ${SII_TOKEN_TTL:55m}
+  worker-delay: ${SII_WORKER_DELAY:2s}
+  claim-lease: ${SII_CLAIM_LEASE:5m}
+  max-status-queries: ${SII_MAX_STATUS_QUERIES:30}
   certification:
-    seed-url: https://maullin.sii.cl/DTEWS/CrSeed.jws
-    token-url: https://maullin.sii.cl/DTEWS/GetTokenFromSeed.jws
+    seed-url: ${SII_CERT_SEED_URL:https://maullin.sii.cl/DTEWS/CrSeed.jws}
+    token-url: ${SII_CERT_TOKEN_URL:https://maullin.sii.cl/DTEWS/GetTokenFromSeed.jws}
+    upload-url: ${SII_CERT_UPLOAD_URL:https://maullin.sii.cl/cgi_dte/UPL/DTEUpload}
+    status-url: ${SII_CERT_STATUS_URL:https://maullin.sii.cl/DTEWS/QueryEstUp.jws}
+  production:
+    seed-url: ${SII_PROD_SEED_URL:https://palena.sii.cl/DTEWS/CrSeed.jws}
+    token-url: ${SII_PROD_TOKEN_URL:https://palena.sii.cl/DTEWS/GetTokenFromSeed.jws}
+    upload-url: ${SII_PROD_UPLOAD_URL:https://palena.sii.cl/cgi_dte/UPL/DTEUpload}
+    status-url: ${SII_PROD_STATUS_URL:https://palena.sii.cl/DTEWS/QueryEstUp.jws}
 
 # Actuator management settings
 management:

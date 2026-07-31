@@ -9,6 +9,8 @@ import cl.cesarg.siiproxyHA.infrastructure.persistence.DocumentProcessingHistory
 import cl.cesarg.siiproxyHA.infrastructure.persistence.DocumentoRepositoryAdapter;
 import cl.cesarg.siiproxyHA.infrastructure.persistence.DteRepository;
 import cl.cesarg.siiproxyHA.infrastructure.persistence.FolioAssignmentRepository;
+import cl.cesarg.siiproxyHA.infrastructure.persistence.SiiSubmissionEntity;
+import cl.cesarg.siiproxyHA.infrastructure.persistence.SiiSubmissionRepository;
 import cl.cesarg.siiproxyHA.infrastructure.persistence.TenantRepository;
 import cl.cesarg.siiproxyHA.infrastructure.persistence.UserCertificateRepository;
 import cl.cesarg.siiproxyHA.infrastructure.security.CafTestFixtureFactory;
@@ -135,6 +137,9 @@ class DteEmissionIntegrationTest {
     private FolioAssignmentRepository folioAssignmentRepository;
 
     @Autowired
+    private SiiSubmissionRepository siiSubmissionRepository;
+
+    @Autowired
     private StoragePort storage;
 
     @Autowired
@@ -222,7 +227,13 @@ class DteEmissionIntegrationTest {
                 .isEqualTo(regeneratedXml.length);
         assertIntegralXml(regeneratedXml, documentId);
 
-        assertPersistenceAndIdempotency(documentId, certificateId, expectedKey);
+        assertPersistenceAndIdempotency(
+                documentId,
+                certificateId,
+                expectedKey,
+                sha256(storedXml),
+                sha256(regeneratedXml)
+        );
         mockMvc.perform(get("/api/v1/dte/{id}/status", documentId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value(DocumentStatus.STORED.name()))
@@ -392,7 +403,9 @@ class DteEmissionIntegrationTest {
 
     private void assertPersistenceAndIdempotency(UUID documentId,
                                                  UUID certificateId,
-                                                 String expectedKey) {
+                                                 String expectedKey,
+                                                 String originalSha256,
+                                                 String regeneratedSha256) {
         assertThat(dteRepository.count()).isEqualTo(1);
         assertThat(folioAssignmentRepository.count()).isEqualTo(1);
 
@@ -400,6 +413,22 @@ class DteEmissionIntegrationTest {
         assertThat(metadata.getStatus()).isEqualTo(DocumentStatus.STORED);
         assertThat(metadata.getObjectKey()).isEqualTo(expectedKey);
         assertThat(metadata.getAttemptCount()).isEqualTo(2);
+        assertThat(metadata.getSigningCredentialId()).isEqualTo(certificateId);
+
+        var submissions = siiSubmissionRepository.findByDteIdOrderByCreatedAtDesc(documentId);
+        var expectedArtifactHashes = new java.util.LinkedHashSet<>(
+                java.util.List.of(originalSha256, regeneratedSha256)
+        );
+        assertThat(submissions).hasSize(expectedArtifactHashes.size());
+        assertThat(submissions)
+                .extracting(SiiSubmissionEntity::getArtifactSha256)
+                .containsExactlyInAnyOrderElementsOf(expectedArtifactHashes);
+        assertThat(submissions)
+                .allSatisfy(submission -> {
+                    assertThat(submission.getSigningCredentialId()).isEqualTo(certificateId);
+                    assertThat(submission.getEnvironment()).isEqualTo("CERTIFICATION");
+                    assertThat(submission.getArtifactKey()).isEqualTo(expectedKey);
+                });
 
         var transitions = historyRepository.findByDocumentIdOrderByCreatedAtAsc(
                 documentId.toString()

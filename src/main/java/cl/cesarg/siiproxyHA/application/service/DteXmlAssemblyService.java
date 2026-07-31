@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Maps a persisted DTE snapshot and coordinates TED and DOM construction.
@@ -32,21 +33,33 @@ public class DteXmlAssemblyService {
      * Builds one EnvioDTE with signed TED and Documento.
      */
     public DteXmlBuilderPort.BuiltDteXml build(Dte dte) {
+        return assemble(dte).builtXml();
+    }
+
+    public AssembledDteXml assemble(Dte dte) {
         validateAssignment(dte);
         TedGeneratorPort.GeneratedTed ted = tedGenerator.generate(tedRequest(dte));
         DteXmlBuilderPort.BuiltDteXml unsigned = xmlBuilder.build(buildRequest(dte, ted));
-        byte[] signedXml = xmlSigning.signAll(
+        var signed = xmlSigning.signAll(
                 unsigned,
                 dte.getTenant().getId(),
                 dte.getRutEnvia()
-        ).xml();
-        return new DteXmlBuilderPort.BuiltDteXml(
-                signedXml,
-                unsigned.documentoId(),
-                unsigned.setDteId(),
-                unsigned.encoding()
+        );
+        return new AssembledDteXml(
+                new DteXmlBuilderPort.BuiltDteXml(
+                        signed.xml(),
+                        unsigned.documentoId(),
+                        unsigned.setDteId(),
+                        unsigned.encoding()
+                ),
+                signed.credentialId()
         );
     }
+
+    public record AssembledDteXml(
+            DteXmlBuilderPort.BuiltDteXml builtXml,
+            UUID signingCredentialId
+    ) {}
 
     private DteXmlBuilderPort.BuildRequest buildRequest(
             Dte dte,
