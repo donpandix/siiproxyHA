@@ -12,6 +12,7 @@ import cl.cesarg.siiproxyHA.domain.port.StoragePort;
 import cl.cesarg.siiproxyHA.infrastructure.persistence.DteRepository;
 import cl.cesarg.siiproxyHA.infrastructure.persistence.TenantRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.io.ByteArrayInputStream;
 import java.security.MessageDigest;
@@ -23,6 +24,7 @@ import java.util.Base64;
 import java.util.HexFormat;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 
 @Service
 public class DteServiceImpl implements DteService {
@@ -35,6 +37,24 @@ public class DteServiceImpl implements DteService {
     private final TenantRepository tenantRepository;
     private final CafService cafService;
     private final DteXmlAssemblyService xmlAssembly;
+    private final SiiSubmissionEnqueueService siiSubmissionEnqueue;
+
+    @Autowired
+    public DteServiceImpl(DocumentoRepositoryPort documentoRepository,
+                          StoragePort storagePort,
+                          DteRepository dteRepository,
+                          TenantRepository tenantRepository,
+                          CafService cafService,
+                          DteXmlAssemblyService xmlAssembly,
+                          SiiSubmissionEnqueueService siiSubmissionEnqueue) {
+        this.documentoRepository = documentoRepository;
+        this.storagePort = storagePort;
+        this.dteRepository = dteRepository;
+        this.tenantRepository = tenantRepository;
+        this.cafService = cafService;
+        this.xmlAssembly = xmlAssembly;
+        this.siiSubmissionEnqueue = siiSubmissionEnqueue;
+    }
 
     public DteServiceImpl(DocumentoRepositoryPort documentoRepository,
                           StoragePort storagePort,
@@ -42,12 +62,15 @@ public class DteServiceImpl implements DteService {
                           TenantRepository tenantRepository,
                           CafService cafService,
                           DteXmlAssemblyService xmlAssembly) {
-        this.documentoRepository = documentoRepository;
-        this.storagePort = storagePort;
-        this.dteRepository = dteRepository;
-        this.tenantRepository = tenantRepository;
-        this.cafService = cafService;
-        this.xmlAssembly = xmlAssembly;
+        this(
+                documentoRepository,
+                storagePort,
+                dteRepository,
+                tenantRepository,
+                cafService,
+                xmlAssembly,
+                null
+        );
     }
 
     @Override
@@ -111,7 +134,13 @@ public class DteServiceImpl implements DteService {
         if (request.getXmlBase64() != null && !request.getXmlBase64().isBlank()) {
             byte[] bytes = Base64.getDecoder().decode(request.getXmlBase64());
             String folio = dte == null || dte.getFolio() == null ? null : dte.getFolio().toString();
-            return storeArtifact(documentId, folio, "dte/" + documentId + ".xml", () -> bytes);
+            return storeArtifact(
+                    documentId,
+                    folio,
+                    "dte/" + documentId + ".xml",
+                    () -> bytes,
+                    () -> null
+            );
         }
 
         if (dte != null) {
@@ -126,7 +155,26 @@ public class DteServiceImpl implements DteService {
         String documentId = dte.getId().toString();
         String folio = dte.getFolio() == null ? null : dte.getFolio().toString();
         String key = dteObjectKey(dte);
-        return storeArtifact(documentId, folio, key, () -> generateXmlFromDte(dte));
+        AtomicReference<UUID> signingCredentialId = new AtomicReference<>();
+        DocumentMetadata stored = storeArtifact(
+                documentId,
+                folio,
+                key,
+                () -> {
+                    DteXmlAssemblyService.AssembledDteXml assembled =
+                            xmlAssembly.assemble(dte);
+                    if (assembled == null) {
+                        return xmlAssembly.build(dte).xml();
+                    }
+                    signingCredentialId.set(assembled.signingCredentialId());
+                    return assembled.builtXml().xml();
+                },
+                signingCredentialId::get
+        );
+        if (siiSubmissionEnqueue != null && stored.getStatus() == DocumentStatus.STORED) {
+            siiSubmissionEnqueue.enqueue(dte, stored);
+        }
+        return stored;
     }
 
     @Override
@@ -162,7 +210,8 @@ public class DteServiceImpl implements DteService {
     private DocumentMetadata storeArtifact(String documentId,
                                            String folio,
                                            String objectKey,
-                                           ArtifactProducer producer) throws Exception {
+                                           ArtifactProducer producer,
+                                           CredentialIdProducer credentialIdProducer) throws Exception {
         DocumentMetadata initial = new DocumentMetadata(documentId, DocumentStatus.RECEIVED);
         initial.setFolio(folio);
         initial.setObjectKey(objectKey);
@@ -197,6 +246,10 @@ public class DteServiceImpl implements DteService {
 
         metadata.setSha256(sha256(bytes));
         metadata.setSizeBytes((long) bytes.length);
+        UUID signingCredentialId = credentialIdProducer.produce();
+        if (signingCredentialId != null) {
+            metadata.setSigningCredentialId(signingCredentialId);
+        }
         metadata.setStatus(DocumentStatus.PENDING_STORE);
         metadata.setLastError(null);
         documentoRepository.save(metadata);
@@ -256,12 +309,13 @@ public class DteServiceImpl implements DteService {
         }
     }
 
-    private byte[] generateXmlFromDte(Dte dte) {
-        return xmlAssembly.build(dte).xml();
-    }
-
     @FunctionalInterface
     private interface ArtifactProducer {
         byte[] produce() throws Exception;
+    }
+
+    @FunctionalInterface
+    private interface CredentialIdProducer {
+        UUID produce();
     }
 }

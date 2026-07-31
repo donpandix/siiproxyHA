@@ -8,6 +8,7 @@ import cl.cesarg.siiproxyHA.domain.model.Dte;
 import cl.cesarg.siiproxyHA.domain.port.DocumentoRepositoryPort;
 import cl.cesarg.siiproxyHA.domain.port.StoragePort;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.io.ByteArrayInputStream;
 import java.security.MessageDigest;
@@ -29,6 +30,22 @@ public class DteXmlRegenerationService {
     private final DocumentoRepositoryPort documentoRepository;
     private final StoragePort storagePort;
     private final DteXmlAssemblyService xmlAssembly;
+    private final SiiSubmissionEnqueueService siiSubmissionEnqueue;
+
+    @Autowired
+    public DteXmlRegenerationService(
+            DteCrudService dteCrudService,
+            DocumentoRepositoryPort documentoRepository,
+            StoragePort storagePort,
+            DteXmlAssemblyService xmlAssembly,
+            SiiSubmissionEnqueueService siiSubmissionEnqueue
+    ) {
+        this.dteCrudService = dteCrudService;
+        this.documentoRepository = documentoRepository;
+        this.storagePort = storagePort;
+        this.xmlAssembly = xmlAssembly;
+        this.siiSubmissionEnqueue = siiSubmissionEnqueue;
+    }
 
     public DteXmlRegenerationService(
             DteCrudService dteCrudService,
@@ -36,10 +53,13 @@ public class DteXmlRegenerationService {
             StoragePort storagePort,
             DteXmlAssemblyService xmlAssembly
     ) {
-        this.dteCrudService = dteCrudService;
-        this.documentoRepository = documentoRepository;
-        this.storagePort = storagePort;
-        this.xmlAssembly = xmlAssembly;
+        this(
+                dteCrudService,
+                documentoRepository,
+                storagePort,
+                xmlAssembly,
+                null
+        );
     }
 
     /**
@@ -78,7 +98,14 @@ public class DteXmlRegenerationService {
 
         byte[] xml;
         try {
-            xml = xmlAssembly.build(dte).xml();
+            DteXmlAssemblyService.AssembledDteXml assembled =
+                    xmlAssembly.assemble(dte);
+            if (assembled == null) {
+                xml = xmlAssembly.build(dte).xml();
+            } else {
+                xml = assembled.builtXml().xml();
+                metadata.setSigningCredentialId(assembled.signingCredentialId());
+            }
             metadata.setSha256(sha256(xml));
             metadata.setSizeBytes((long) xml.length);
             metadata.setLastError(null);
@@ -102,7 +129,11 @@ public class DteXmlRegenerationService {
             metadata.setObjectKey(storedKey);
             metadata.setStatus(DocumentStatus.STORED);
             metadata.setLastError(null);
-            return documentoRepository.save(metadata);
+            DocumentMetadata stored = documentoRepository.save(metadata);
+            if (siiSubmissionEnqueue != null) {
+                siiSubmissionEnqueue.enqueue(dte, stored);
+            }
+            return stored;
         } catch (Exception exception) {
             markFailure(
                     metadata,

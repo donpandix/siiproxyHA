@@ -8,8 +8,9 @@ DOM, rutas de MinIO, contraseñas cifradas ni detalles del proveedor.
 
 Contratos iniciales:
 
-- `XmlSignerPort`: firma un elemento aislado o encadena `Documento` y `SetDTE`
-  sobre el mismo árbol mediante un perfil explícito.
+- `XmlSignerPort`: firma un elemento aislado o encadena `Documento` en su
+  contexto lexical legado y `SetDTE` sobre el sobre completo mediante un
+  perfil explícito.
 - `SigningCredentialPort`: selecciona una credencial firmante por tenant y RUT.
 - `CafMaterialPort`: selecciona el CAF que autoriza un folio sin exponer `RSASK`.
 - `DteXmlValidatorPort`: devuelve problemas estructurados de validación.

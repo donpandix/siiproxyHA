@@ -2,6 +2,7 @@ package cl.cesarg.siiproxyHA.infrastructure.persistence;
 
 import jakarta.persistence.*;
 import java.time.OffsetDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "document_metadata")
@@ -35,6 +36,9 @@ public class DocumentoEntity {
     @Column(name = "last_error", length = 500)
     private String lastError;
 
+    @Column(name = "signing_credential_id")
+    private UUID signingCredentialId;
+
     @Column(name = "created_at")
     private OffsetDateTime createdAt;
 
@@ -59,6 +63,8 @@ public class DocumentoEntity {
     public void setAttemptCount(Integer attemptCount) { this.attemptCount = attemptCount; }
     public String getLastError() { return lastError; }
     public void setLastError(String lastError) { this.lastError = lastError; }
+    public UUID getSigningCredentialId() { return signingCredentialId; }
+    public void setSigningCredentialId(UUID signingCredentialId) { this.signingCredentialId = signingCredentialId; }
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
     public OffsetDateTime getUpdatedAt() { return updatedAt; }

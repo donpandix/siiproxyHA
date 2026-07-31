@@ -324,7 +324,7 @@ siendo legible.
 | `TED_FRMT_INVALID` | Revisar que el CAF tenga `RSASK` y que no haya sido alterado. | Reponer el CAF original autorizado. |
 | `XSD_VALIDATION` | Descargar el XML y contrastar el código de validación con el payload. | Corregir datos o constructor; no editar el XML ya firmado. |
 | `DTE_AMOUNT_PROFILE` | Sumar `Detalle/MontoItem` y comparar con `MntNeto` y `MntTotal`. | Informar montos netos, o montos brutos coherentes para que el constructor emita `MntBruto=1`; luego regenerar. |
-| SII `DTE-3-505 Firma DTE Incorrecta` | Comparar el SHA-256 del archivo enviado con el descargado; buscar CR, `&#13;`, conversión a UTF-8 o pretty-print. | Regenerar, descargar y enviar los bytes exactos. Si coinciden, preservar XML y respuesta SII para revisar autorización o cadena del certificado. |
+| SII `DTE-3-505 Firma DTE Incorrecta` | Comparar el SHA-256 del archivo enviado con el descargado; buscar CR, `&#13;`, conversión a UTF-8 o pretty-print. Verificar además que `Documento` valide sin heredar los namespaces de `EnvioDTE`, mientras `SetDTE` valida sobre el sobre completo. | Regenerar, descargar y enviar los bytes exactos. Si el hash coincide pero falla la firma interior, revisar el contexto lexical neutral de `Documento`; no cambiar la firma exterior ni editar el XML. |
 | `FAILED_RECOVERABLE` por storage | Verificar MinIO, bucket, permisos y red. | Restaurar el servicio y reenviar el mismo `id`. |
 | `PENDING_STORE` reciente | Revisar `updated_at` y salud de MinIO. | Esperar el intento en curso; no lanzar replays concurrentes. |
 | `PENDING_STORE` por más de cinco minutos | Confirmar que no existe otro proceso activo. | Reenviar el mismo request e `id`; el claim obsoleto puede ser recuperado. |

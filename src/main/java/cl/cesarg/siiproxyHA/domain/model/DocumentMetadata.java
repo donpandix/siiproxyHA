@@ -1,6 +1,7 @@
 package cl.cesarg.siiproxyHA.domain.model;
 
 import java.time.OffsetDateTime;
+import java.util.UUID;
 
 public class DocumentMetadata {
 
@@ -13,6 +14,7 @@ public class DocumentMetadata {
     private Long sizeBytes;
     private Integer attemptCount;
     private String lastError;
+    private UUID signingCredentialId;
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
 
@@ -44,6 +46,8 @@ public class DocumentMetadata {
     public void setAttemptCount(Integer attemptCount) { this.attemptCount = attemptCount; }
     public String getLastError() { return lastError; }
     public void setLastError(String lastError) { this.lastError = lastError; }
+    public UUID getSigningCredentialId() { return signingCredentialId; }
+    public void setSigningCredentialId(UUID signingCredentialId) { this.signingCredentialId = signingCredentialId; }
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
     public OffsetDateTime getUpdatedAt() { return updatedAt; }

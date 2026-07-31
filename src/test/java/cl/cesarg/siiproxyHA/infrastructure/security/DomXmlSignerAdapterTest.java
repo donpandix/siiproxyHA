@@ -17,18 +17,25 @@ import javax.xml.crypto.dsig.CanonicalizationMethod;
 import javax.xml.crypto.dsig.DigestMethod;
 import javax.xml.crypto.dsig.SignatureMethod;
 import javax.xml.crypto.dsig.Transform;
+import javax.xml.crypto.dsig.XMLSignature;
+import javax.xml.crypto.dsig.XMLSignatureFactory;
+import javax.xml.crypto.dsig.dom.DOMValidateContext;
 import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.KeyStore;
 import java.security.cert.Certificate;
+import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -198,6 +205,48 @@ class DomXmlSignerAdapterTest {
         assertTrue(xml.contains("</SetDTE>\n<Signature"));
         assertFalse(xml.contains("\r"));
         assertFalse(xml.contains("&#13;"));
+    }
+
+    @Test
+    void signsDocumentoForSiiLegacyDetachedNamespaceContext() throws Exception {
+        Fixture fixture = fixture();
+
+        XmlSignerPort.SignedXml signed = signer().signChain(
+                new XmlSignerPort.ChainedSigningRequest(
+                        unsignedXml(),
+                        "DTE-105",
+                        "SetDTE-test",
+                        fixture.descriptor(),
+                        XmlSignerPort.SignatureProfile.SII_LEGACY_RSA_SHA1
+                )
+        );
+
+        assertTrue(
+                validateDocumentoSignature(signed.xml(), true),
+                "Documento must validate without EnvioDTE inherited namespaces"
+        );
+        assertFalse(
+                validateDocumentoSignature(signed.xml(), false),
+                "Documento must not depend on the complete EnvioDTE namespace context"
+        );
+    }
+
+    @Test
+    void reproducesObservedSiiDocumentoNamespaceValidation() throws Exception {
+        byte[] accepted = Files.readAllBytes(
+                Path.of("resultados/dte_valido.xml")
+        );
+        byte[] rejected = Files.readAllBytes(
+                Path.of(
+                        "resultados",
+                        "d4fe947f-9006-4fb9-98dd-de790ffc037c-182.xml"
+                )
+        );
+
+        assertTrue(validateDocumentoSignature(accepted, true));
+        assertFalse(validateDocumentoSignature(accepted, false));
+        assertFalse(validateDocumentoSignature(rejected, true));
+        assertTrue(validateDocumentoSignature(rejected, false));
     }
 
     @Test
@@ -451,6 +500,65 @@ class DomXmlSignerAdapterTest {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         factory.setNamespaceAware(true);
         return factory.newDocumentBuilder().parse(new ByteArrayInputStream(xml));
+    }
+
+    private boolean validateDocumentoSignature(
+            byte[] xml,
+            boolean detachEnvelopeNamespaces
+    ) throws Exception {
+        byte[] candidate = xml;
+        if (detachEnvelopeNamespaces) {
+            String detached = new String(xml, StandardCharsets.ISO_8859_1)
+                    .replace(
+                            " xmlns=\""
+                                    + DomDteXmlBuilderAdapter.SII_NAMESPACE
+                                    + "\"",
+                            ""
+                    )
+                    .replace(
+                            " xmlns:xsi=\""
+                                    + DomDteXmlBuilderAdapter.XSI_NAMESPACE
+                                    + "\"",
+                            ""
+                    )
+                    .replace(
+                            " xsi:schemaLocation=\""
+                                    + DomDteXmlBuilderAdapter.ENVIO_DTE_SCHEMA_LOCATION
+                                    + "\"",
+                            ""
+                    );
+            candidate = detached.getBytes(StandardCharsets.ISO_8859_1);
+        }
+
+        Document document = parse(candidate);
+        Element documento = detachEnvelopeNamespaces
+                ? (Element) document.getElementsByTagName("Documento").item(0)
+                : (Element) document.getElementsByTagNameNS(
+                        DomDteXmlBuilderAdapter.SII_NAMESPACE,
+                        "Documento"
+                ).item(0);
+        documento.setIdAttribute("ID", true);
+        Element signature = (Element) document
+                .getElementsByTagNameNS(DSIG_NAMESPACE, "Signature")
+                .item(0);
+        Element certificateElement = (Element) signature
+                .getElementsByTagNameNS(DSIG_NAMESPACE, "X509Certificate")
+                .item(0);
+        X509Certificate certificate = (X509Certificate)
+                CertificateFactory.getInstance("X.509")
+                        .generateCertificate(new ByteArrayInputStream(
+                                Base64.getMimeDecoder().decode(
+                                        certificateElement.getTextContent()
+                                )
+                        ));
+        DOMValidateContext context = new DOMValidateContext(
+                certificate.getPublicKey(),
+                signature
+        );
+        context.setProperty("org.jcp.xml.dsig.secureValidation", Boolean.FALSE);
+        XMLSignature xmlSignature = XMLSignatureFactory.getInstance("DOM")
+                .unmarshalXMLSignature(context);
+        return xmlSignature.validate(context);
     }
 
     private String textAttribute(

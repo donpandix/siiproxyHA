@@ -222,12 +222,21 @@ public class DomXmlSignerAdapter implements XmlSignerPort {
             } else {
                 requireUnsignedEnvelope(nodes.parent());
             }
-            appendSignature(
-                    nodes,
-                    referenceId,
-                    privateKey,
-                    certificate
-            );
+            if (target == SignatureTarget.DOCUMENTO) {
+                appendDocumentoSignature(
+                        nodes,
+                        referenceId,
+                        privateKey,
+                        certificate
+                );
+            } else {
+                appendSignature(
+                        nodes,
+                        referenceId,
+                        privateKey,
+                        certificate
+                );
+            }
 
             byte[] output = serialize(document);
             verifyDd(output, originalDd);
@@ -274,13 +283,13 @@ public class DomXmlSignerAdapter implements XmlSignerPort {
             requireNoSignature(envelopeNodes.parent(), SignatureTarget.SET_DTE);
             requireUnsignedEnvelope(documentNodes.parent());
 
-            Element documentSignature = appendSignature(
+            Element documentSignature = appendDocumentoSignature(
                     documentNodes,
                     documentoId,
                     privateKey,
                     certificate
             );
-            validateSignature(
+            validateDocumentoSignature(
                     documentNodes.target(),
                     documentSignature,
                     "#" + documentoId,
@@ -364,6 +373,47 @@ public class DomXmlSignerAdapter implements XmlSignerPort {
         return signatureElement;
     }
 
+    private Element appendDocumentoSignature(
+            TargetNodes nodes,
+            String referenceId,
+            java.security.PrivateKey privateKey,
+            X509Certificate certificate
+    ) throws Exception {
+        SiiLegacyDocumentoSignatureContext.DetachedDocumento detached =
+                SiiLegacyDocumentoSignatureContext.unsigned(nodes.target());
+        Element detachedSignature = appendSignature(
+                new TargetNodes(detached.documento(), detached.dte()),
+                referenceId,
+                privateKey,
+                certificate
+        );
+        validateSignature(
+                detached.documento(),
+                detachedSignature,
+                "#" + referenceId,
+                certificate
+        );
+        return attachSignature(nodes, detachedSignature);
+    }
+
+    private Element attachSignature(
+            TargetNodes nodes,
+            Element sourceSignature
+    ) {
+        Node insertionPoint = nodes.target().getNextSibling();
+        insertSignatureSeparator(nodes.target(), insertionPoint);
+        Element signature = (Element) nodes.target()
+                .getOwnerDocument()
+                .importNode(sourceSignature, true);
+        if (insertionPoint == null) {
+            nodes.parent().appendChild(signature);
+        } else {
+            nodes.parent().insertBefore(signature, insertionPoint);
+        }
+        ensureTrailingLineFeed(signature);
+        return signature;
+    }
+
     private KeyInfo keyInfo(
             KeyInfoFactory factory,
             X509Certificate certificate
@@ -395,11 +445,37 @@ public class DomXmlSignerAdapter implements XmlSignerPort {
         }
         if (target == SignatureTarget.SET_DTE) {
             validateDocumentSignatures(document, nodes.target(), certificate);
+            validateSignature(
+                    nodes.target(),
+                    signatures.getFirst(),
+                    "#" + referenceId,
+                    certificate
+            );
+        } else {
+            validateDocumentoSignature(
+                    nodes.target(),
+                    signatures.getFirst(),
+                    "#" + referenceId,
+                    certificate
+            );
         }
+    }
+
+    private void validateDocumentoSignature(
+            Element documento,
+            Element signature,
+            String expectedUri,
+            X509Certificate certificate
+    ) throws Exception {
+        SiiLegacyDocumentoSignatureContext.DetachedDocumento detached =
+                SiiLegacyDocumentoSignatureContext.signed(
+                        documento,
+                        signature
+                );
         validateSignature(
-                nodes.target(),
-                signatures.getFirst(),
-                "#" + referenceId,
+                detached.documento(),
+                detached.signature(),
+                expectedUri,
                 certificate
         );
     }
@@ -689,7 +765,7 @@ public class DomXmlSignerAdapter implements XmlSignerPort {
             X509Certificate certificate
     ) throws Exception {
         for (SignedDocumento signed : requireSignedDocumentos(document, setDte)) {
-            validateSignature(
+            validateDocumentoSignature(
                     signed.documento(),
                     signed.signature(),
                     signed.referenceUri(),

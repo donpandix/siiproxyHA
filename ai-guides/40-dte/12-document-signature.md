@@ -33,6 +33,13 @@ dentro de `DTE`. Aunque queda fuera del elemento referenciado, el perfil
 declara `enveloped-signature` para igualar la estructura interoperable aceptada
 por el SII.
 
+La firma se calcula sobre una vista DOM temporal de `Documento` que conserva
+elementos, atributos, texto y whitespace, pero no hereda los namespaces
+`SiiDte` y `xsi` declarados por `EnvioDTE`. Esta vista reproduce el contexto
+lexical del DTE aceptado por el SII. Solamente la `Signature` resultante se
+importa al árbol namespace-aware original; el contenido tributario de
+`Documento` no se reemplaza ni reserializa por separado.
+
 Antes de firmar se incorpora el separador LF que ubicará `Signature` en una
 línea distinta; de este modo el whitespace que afecta al digest de `DTE`
 posterior ya es definitivo. Después de firmar solo se normalizan los campos
@@ -57,11 +64,12 @@ Antes de abrir el PKCS#12 se procesa el XML con JAXP seguro y se exige:
 
 La estructura se comprueba nuevamente dentro de la operación que recibe la
 clave privada. La resolución de URI se limita a la referencia interna exacta.
-La firma interna se valida en el mismo DOM antes de calcular el digest de
-`SetDTE` y ambas firmas se validan nuevamente sobre la única serialización
-final. La excepción de validación segura del JDK se deshabilita
-únicamente en ese contexto controlado porque el perfil legado del SII exige
-RSA-SHA1.
+La firma interna se valida en la misma vista neutral usada para calcularla
+antes de calcular el digest de `SetDTE`. Después de la única serialización
+final, `Documento` vuelve a validarse en ese contexto neutral y `SetDTE` sobre
+el `EnvioDTE` completo. La excepción de validación segura del JDK se
+deshabilita únicamente en esos contextos controlados porque el perfil legado
+del SII exige RSA-SHA1.
 
 El contenido `DD` se compara byte a byte antes y después de la firma. Si la
 serialización altera el material cubierto por `FRMT`, no se entrega el XML.
