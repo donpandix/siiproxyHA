@@ -17,7 +17,8 @@ public interface XmlSignerPort {
     SignedXml sign(SigningRequest request);
 
     /**
-     * Signs Documento and SetDTE on the same XML tree and serializes only once.
+     * Signs Documento in its SII legacy context, then SetDTE on the complete
+     * envelope, and returns only the final serialized EnvioDTE.
      */
     SignedXml signChain(ChainedSigningRequest request);
 

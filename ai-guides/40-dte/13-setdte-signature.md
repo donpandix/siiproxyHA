@@ -6,10 +6,16 @@
 credencial seleccionada por tenant y `RutEnvia`:
 
 1. firma `Documento`;
-2. normaliza la firma interna en el mismo DOM;
-3. firma `SetDTE` sin parsear ni serializar nuevamente `Documento`;
+2. importa y normaliza la firma interna en el DOM original;
+3. firma `SetDTE` sin reserializar nuevamente `Documento`;
 4. serializa una sola vez y entrega únicamente el XML donde ambas firmas fueron
    revalidadas.
+
+Para la primera etapa, el adaptador construye una vista temporal de
+`Documento` sin los namespaces heredados del sobre. Esta vista solo determina
+`DigestValue` y `SignatureValue`; la firma terminada se inserta como hermana de
+`Documento` en el árbol original. La segunda etapa continúa operando sobre el
+`SetDTE` namespace-aware completo y cubre la firma interna ya finalizada.
 
 La serialización final conserva el orden estructural del XSD y normaliza
 solamente el orden lexical de los atributos de `EnvioDTE` para coincidir con el
@@ -60,11 +66,12 @@ Antes de abrir la credencial para firmar el sobre se exige:
 - exactamente un `Documento` seguido por una firma en cada `DTE`;
 - IDs de `Documento` presentes y globalmente únicos.
 
-Dentro de una única operación PKCS#12 se firma y valida `Documento`, y luego se
-firma `SetDTE` sobre ese mismo árbol. Después se realiza la única serialización
-del flujo y se vuelve a parsear para validar:
+Dentro de una única operación PKCS#12 se firma y valida `Documento` en su vista
+lexical neutral, se importa la firma terminada y luego se firma `SetDTE` sobre
+el árbol completo. Después se realiza la única serialización del flujo y se
+vuelve a parsear para validar:
 
-- todas las firmas internas de `Documento`;
+- todas las firmas internas de `Documento` en contexto neutral;
 - la firma externa de `SetDTE`;
 - referencias internas exactas;
 - algoritmos exactos del perfil legado;
@@ -83,11 +90,13 @@ uso parcial.
 
 ## Alternativas evaluadas
 
-Se eligió firmar ambos nodos en una única manipulación DOM para impedir que una
-segunda etapa parsee, reserialice o reformatee el `Documento` ya firmado. La
-firma interna se valida directamente antes de firmar el sobre y nuevamente
-sobre los bytes finales. También se descartó seleccionar otra credencial para
-el sobre, ya que podría producir firmas con identidades distintas.
+Se eligió mantener un único DOM final y una única serialización del
+`EnvioDTE`. La vista neutral de `Documento` es transitoria y no reemplaza el
+subárbol original; solo aporta la `Signature` compatible con el contexto
+lexical observado en el SII. La firma interna se valida antes de firmar el
+sobre y nuevamente desde los bytes finales. También se descartó seleccionar
+otra credencial para el sobre, ya que podría producir firmas con identidades
+distintas.
 
 ## Límites
 

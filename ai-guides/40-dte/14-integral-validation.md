@@ -72,6 +72,13 @@ Cada firma se valida usando el certificado X.509 incorporado, nunca una clave
 proporcionada por el payload fuera de `KeyInfo`. El resolvedor XMLDSig rechaza
 URIs diferentes del fragmento esperado.
 
+La firma de `Documento` se valida sobre una copia lexical sin los namespaces
+heredados de `EnvioDTE`, igual al contexto usado por el firmador y al artefacto
+aceptado de referencia. La firma de `SetDTE` se valida sobre el sobre
+namespace-aware completo. Esta separación evita que firmador y validador
+declaren válido un digest interior dependiente de `xmlns` y `xmlns:xsi` del
+sobre.
+
 El perfil `DTE_DOCUMENT` valida un `DTE` autónomo. Como ese artefacto no contiene
 `Caratula/RutEnvia`, no puede comprobar autorización del RUT por sí solo.
 

@@ -366,7 +366,8 @@ public class ComprehensiveDteXmlValidatorAdapter implements DteXmlValidatorPort 
                 setDte,
                 envelopeSignatures.getFirst(),
                 signerRut,
-                issues
+                issues,
+                false
         );
     }
 
@@ -423,7 +424,8 @@ public class ComprehensiveDteXmlValidatorAdapter implements DteXmlValidatorPort 
                 documentos.getFirst(),
                 signatures.getFirst(),
                 signerRut,
-                issues
+                issues,
+                true
         );
     }
 
@@ -431,16 +433,28 @@ public class ComprehensiveDteXmlValidatorAdapter implements DteXmlValidatorPort 
             Element signedElement,
             Element signatureElement,
             String signerRut,
-            List<ValidationIssue> issues
+            List<ValidationIssue> issues,
+            boolean detachedDocumentoContext
     ) {
         String expectedUri = reference(signedElement);
         try {
             if (expectedUri == null) {
                 throw new IllegalArgumentException("Signed element has no ID");
             }
-            signedElement.setIdAttribute("ID", true);
+            Element validationElement = signedElement;
+            Element validationSignature = signatureElement;
+            if (detachedDocumentoContext) {
+                SiiLegacyDocumentoSignatureContext.DetachedDocumento detached =
+                        SiiLegacyDocumentoSignatureContext.signed(
+                                signedElement,
+                                signatureElement
+                        );
+                validationElement = detached.documento();
+                validationSignature = detached.signature();
+            }
+            validationElement.setIdAttribute("ID", true);
             XMLSignatureFactory factory = XMLSignatureFactory.getInstance("DOM");
-            EmbeddedKey embeddedKey = embeddedKey(signatureElement);
+            EmbeddedKey embeddedKey = embeddedKey(validationSignature);
             if (!signerAuthorized(embeddedKey.certificate(), signerRut)) {
                 issues.add(error(
                         "SIGNER_AUTHORIZATION",
@@ -451,7 +465,7 @@ public class ComprehensiveDteXmlValidatorAdapter implements DteXmlValidatorPort 
             }
             DOMValidateContext context = new DOMValidateContext(
                     embeddedKey.certificate().getPublicKey(),
-                    signatureElement
+                    validationSignature
             );
             context.setProperty(SECURE_VALIDATION_PROPERTY, Boolean.FALSE);
             restrictDereferencing(factory, context, expectedUri);
