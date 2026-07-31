@@ -18,7 +18,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 
 @RestController
@@ -67,8 +66,18 @@ public class DteController {
                 && accept.contains(MediaType.APPLICATION_XML_VALUE)
                 && resp.getXmlBase64() != null
                 && !resp.getXmlBase64().isBlank()) {
-            String xml = new String(Base64.getDecoder().decode(resp.getXmlBase64()), StandardCharsets.UTF_8);
-            return ResponseEntity.ok().contentType(MediaType.APPLICATION_XML).body(xml);
+            byte[] xml = Base64.getDecoder().decode(resp.getXmlBase64());
+            MediaType siiXml = MediaType.parseMediaType(
+                    "application/xml;charset=ISO-8859-1"
+            );
+            return ResponseEntity.ok()
+                    .contentType(siiXml)
+                    .contentLength(xml.length)
+                    .header(
+                            HttpHeaders.CONTENT_DISPOSITION,
+                            "attachment; filename=\"" + id + ".xml\""
+                    )
+                    .body(xml);
         }
 
         return ResponseEntity.ok(resp);

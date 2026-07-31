@@ -19,6 +19,7 @@ public interface DteXmlBuilderPort {
 
     enum BuildFailureReason {
         INVALID_TED,
+        INCONSISTENT_AMOUNTS,
         DD_CHANGED,
         UNSUPPORTED_XML,
         SERIALIZATION_FAILURE

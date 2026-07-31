@@ -119,13 +119,25 @@ paths:
           required: true
           schema:
             type: string
+        - name: Accept
+          in: header
+          required: false
+          description: >
+            Usar application/xml para descargar los bytes firmados exactos en
+            ISO-8859-1, sin transcodificación.
+          schema:
+            type: string
       responses:
         '200':
-          description: XML base64 o URL
+          description: XML base64, URL prefirmada o XML firmado binario
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/DteXmlResponse'
+            application/xml:
+              schema:
+                type: string
+                format: binary
         '404':
           description: Documento no encontrado
 

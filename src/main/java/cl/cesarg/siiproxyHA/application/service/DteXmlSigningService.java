@@ -48,25 +48,11 @@ public class DteXmlSigningService {
                         )
                 );
 
-        XmlSignerPort.SignedXml signedDocument = xmlSigner.sign(
-                new XmlSignerPort.SigningRequest(
+        XmlSignerPort.SignedXml signedEnvelope = xmlSigner.signChain(
+                new XmlSignerPort.ChainedSigningRequest(
                         built.xml(),
                         built.documentoId(),
-                        XmlSignerPort.SignatureTarget.DOCUMENTO,
-                        credential,
-                        XmlSignerPort.SignatureProfile.SII_LEGACY_RSA_SHA1
-                )
-        );
-        credentials.recordSuccessfulUse(
-                signedDocument.credentialId(),
-                OffsetDateTime.now(ZoneOffset.UTC)
-        );
-
-        XmlSignerPort.SignedXml signedEnvelope = xmlSigner.sign(
-                new XmlSignerPort.SigningRequest(
-                        signedDocument.xml(),
                         built.setDteId(),
-                        XmlSignerPort.SignatureTarget.SET_DTE,
                         credential,
                         XmlSignerPort.SignatureProfile.SII_LEGACY_RSA_SHA1
                 )
@@ -80,9 +66,14 @@ public class DteXmlSigningService {
         if (!validation.valid()) {
             throw new DteXmlValidationException(validation);
         }
+        OffsetDateTime validatedAt = OffsetDateTime.now(ZoneOffset.UTC);
         credentials.recordSuccessfulUse(
                 signedEnvelope.credentialId(),
-                OffsetDateTime.now(ZoneOffset.UTC)
+                validatedAt
+        );
+        credentials.recordSuccessfulUse(
+                signedEnvelope.credentialId(),
+                validatedAt
         );
         return signedEnvelope;
     }

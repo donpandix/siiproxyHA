@@ -29,6 +29,7 @@ public class TedGeneratorAdapter implements TedGeneratorPort {
     private static final DateTimeFormatter SII_TIMESTAMP =
             DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
     private static final int TED_TEXT_MAX_LENGTH = 40;
+    private static final String LF = "\n";
 
     private final CafMaterialPort cafMaterialPort;
     private final CafPrivateKeyResolver privateKeyResolver;
@@ -87,11 +88,13 @@ public class TedGeneratorAdapter implements TedGeneratorPort {
                 return signer.sign();
             });
             String frmt = Base64.getEncoder().encodeToString(signature);
-            String tedXml = "<TED version=\"1.0\">"
+            String tedXml = "<TED version=\"1.0\">" + LF
                     + new String(ddXml, StandardCharsets.ISO_8859_1)
+                    + LF
                     + "<FRMT algoritmo=\"SHA1withRSA\">"
                     + frmt
-                    + "</FRMT></TED>";
+                    + "</FRMT>" + LF
+                    + "</TED>";
             return new GeneratedTed(
                     encodeLatin1(tedXml),
                     ddXml,
@@ -119,23 +122,28 @@ public class TedGeneratorAdapter implements TedGeneratorPort {
             CafMaterialPort.CafMaterial caf,
             LocalDateTime generatedAt
     ) {
-        String ddXml = "<DD>"
-                + element("RE", request.emitterRut())
-                + element("TD", Integer.toString(request.tipoDte()))
-                + element("F", Long.toString(request.folio()))
-                + element("FE", request.emissionDate().toString())
-                + element("RR", request.receiverRut())
-                + element("RSR", tedText(request.receiverName()))
-                + element("MNT", Long.toString(request.totalAmount()))
-                + element("IT1", tedText(request.firstItem()))
-                + new String(caf.publicCafXml(), StandardCharsets.UTF_8)
-                + element("TSTED", generatedAt.format(SII_TIMESTAMP))
+        String ddXml = "<DD>" + LF
+                + elementLine("RE", request.emitterRut())
+                + elementLine("TD", Integer.toString(request.tipoDte()))
+                + elementLine("F", Long.toString(request.folio()))
+                + elementLine("FE", request.emissionDate().toString())
+                + elementLine("RR", request.receiverRut())
+                + elementLine("RSR", tedText(request.receiverName()))
+                + elementLine("MNT", Long.toString(request.totalAmount()))
+                + elementLine("IT1", tedText(request.firstItem()))
+                + normalizeLf(new String(caf.publicCafXml(), StandardCharsets.UTF_8))
+                + LF
+                + elementLine("TSTED", generatedAt.format(SII_TIMESTAMP))
                 + "</DD>";
         return encodeLatin1(ddXml);
     }
 
-    private String element(String name, String value) {
-        return "<" + name + ">" + escapeXml(value) + "</" + name + ">";
+    private String elementLine(String name, String value) {
+        return "<" + name + ">" + escapeXml(value) + "</" + name + ">" + LF;
+    }
+
+    private String normalizeLf(String value) {
+        return value.replace("\r\n", LF).replace('\r', '\n').stripTrailing();
     }
 
     private String tedText(String value) {

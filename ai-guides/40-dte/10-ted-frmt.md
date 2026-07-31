@@ -39,6 +39,11 @@ Los bytes firmados y almacenados usan `ISO-8859-1`. El adaptador rechaza
 caracteres que no puedan representarse en esa codificación para impedir
 reemplazos silenciosos que cambien el contenido tributario.
 
+`DD` y `TED` se renderizan con saltos de línea LF (`\n`) deterministas. El
+bloque público `CAF` normaliza CRLF y CR a LF antes de incorporarse. Esos
+saltos son parte de los bytes de `DD`: `FRMT` se calcula después de construir
+el bloque definitivo y ninguna etapa posterior puede reindentarlo.
+
 El perfil requerido por el SII para CAF RSA es:
 
 - algoritmo JCA: `SHA1withRSA`;

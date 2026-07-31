@@ -37,6 +37,25 @@ class SigningContractsTest {
     }
 
     @Test
+    void chainedSigningRequestDefensivelyCopiesXml() {
+        byte[] input = "<EnvioDTE/>".getBytes(StandardCharsets.UTF_8);
+        XmlSignerPort.ChainedSigningRequest request =
+                new XmlSignerPort.ChainedSigningRequest(
+                        input,
+                        "DTE-1",
+                        "SetDTE-1",
+                        credential(),
+                        XmlSignerPort.SignatureProfile.SII_LEGACY_RSA_SHA1
+                );
+
+        input[0] = 'X';
+        byte[] returned = request.xml();
+        returned[0] = 'Y';
+
+        assertEquals('<', request.xml()[0]);
+    }
+
+    @Test
     void signedXmlOnlyAcceptsInternalReferences() {
         assertThrows(
                 IllegalArgumentException.class,

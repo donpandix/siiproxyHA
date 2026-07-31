@@ -14,6 +14,11 @@
 `Documento` y `SetDTE`. Un resultado con severidad `ERROR` impide entregar o
 almacenar el artefacto.
 
+Las pruebas integrales también cubren el contrato de serialización que rodea a
+la criptografía: bytes ISO-8859-1 reversibles, layout con LF, ausencia de CR y
+`&#13;`, y líneas acotadas. Estos controles evitan que el transporte reciba un
+XML continuo o con finales de línea distintos de los que fueron firmados.
+
 ## XSD local y resolución cerrada
 
 Se utilizan exclusivamente:
@@ -53,11 +58,15 @@ El perfil `ENVIO_DTE` exige:
 - cada `DTE` con un `Documento` seguido por su firma;
 - IDs presentes y globalmente únicos;
 - una referencia interna exacta por firma;
-- SHA-1, RSA-SHA1 y C14N inclusiva;
+- SHA-1, RSA-SHA1, transform `enveloped-signature` y C14N inclusiva de
+  `SignedInfo`;
 - `KeyInfo` con `KeyValue` y `X509Data`;
 - correspondencia entre `KeyValue` y el certificado;
 - certificado vigente, RSA y habilitado para firma cuando declara `KeyUsage`;
 - RUT del sujeto del certificado igual a `Caratula/RutEnvia`.
+- para facturas tipo 33 sin líneas exentas ni descuentos/recargos globales,
+  suma de `MontoItem` igual a `MntNeto`, o a `MntTotal` cuando se declara
+  `MntBruto=1`.
 
 Cada firma se valida usando el certificado X.509 incorporado, nunca una clave
 proporcionada por el payload fuera de `KeyInfo`. El resolvedor XMLDSig rechaza
@@ -80,6 +89,7 @@ cuando está disponible. Entre los códigos principales:
 - `TED_FRMT_INVALID`;
 - `XML_SIGNATURE_INVALID`;
 - `SIGNER_AUTHORIZATION`;
+- `DTE_AMOUNT_PROFILE`;
 - errores de ubicación de `Documento` y `SetDTE`.
 
 ## Alternativas evaluadas

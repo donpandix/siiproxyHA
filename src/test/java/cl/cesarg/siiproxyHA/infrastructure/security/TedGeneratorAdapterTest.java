@@ -87,6 +87,12 @@ class TedGeneratorAdapterTest {
         assertTrue(ddXml.contains("<IT1>Artículo de prueba</IT1>"));
         assertTrue(ddXml.contains("<CAF version=\"1.0\">"));
         assertTrue(ddXml.contains("<TSTED>2026-07-24T12:30:45</TSTED>"));
+        assertTrue(ddXml.startsWith("<DD>\n<RE>"));
+        assertTrue(ddXml.contains("</IT1>\n<CAF"));
+        assertTrue(ddXml.contains("</CAF>\n<TSTED>"));
+        assertTrue(ddXml.endsWith("</TSTED>\n</DD>"));
+        assertFalse(tedXml.contains("\r"));
+        assertFalse(tedXml.contains("&#13;"));
         assertFalse(tedXml.contains("RSASK"));
         assertFalse(tedXml.contains("RSAPUBK"));
         assertTrue(verifyFrmt(tedXml, generated.ddXml()));

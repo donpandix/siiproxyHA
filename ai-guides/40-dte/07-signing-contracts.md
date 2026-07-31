@@ -8,7 +8,8 @@ DOM, rutas de MinIO, contraseñas cifradas ni detalles del proveedor.
 
 Contratos iniciales:
 
-- `XmlSignerPort`: firma `Documento` o `SetDTE` mediante un perfil explícito.
+- `XmlSignerPort`: firma un elemento aislado o encadena `Documento` y `SetDTE`
+  sobre el mismo árbol mediante un perfil explícito.
 - `SigningCredentialPort`: selecciona una credencial firmante por tenant y RUT.
 - `CafMaterialPort`: selecciona el CAF que autoriza un folio sin exponer `RSASK`.
 - `DteXmlValidatorPort`: devuelve problemas estructurados de validación.
@@ -35,6 +36,8 @@ convertir SHA-1 en el algoritmo general de la aplicación.
 - La selección no autoriza por sí sola la firma: el adaptador debe revalidar
   tenant, RUT, estado, vigencia y capacidad de clave privada al ejecutar.
 - Los arrays de bytes se copian defensivamente para impedir mutaciones externas.
+- El contrato encadenado recibe ambos IDs y retorna solo el `EnvioDTE` final;
+  no expone el DOM ni un artefacto intermedio susceptible de reserialización.
 
 ## Compatibilidad de paquetes
 

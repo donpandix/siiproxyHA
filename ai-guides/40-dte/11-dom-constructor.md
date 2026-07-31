@@ -30,6 +30,20 @@ Todos los elementos pertenecen explícitamente al namespace
 marcan como tipo ID en el DOM y se retornan junto al XML para que la etapa
 XMLDSig use referencias internas inequívocas.
 
+Los identificadores siguen una convención estable y compatible con los
+ejemplos aceptados por el SII:
+
+- `SetDTE/@ID`: `SIIPROXY_SetDoc`;
+- `Documento/@ID`: `DTE_T{TipoDTE}F{Folio}`.
+
+La `Reference/@URI` de cada firma debe apuntar exactamente al identificador
+correspondiente. Como cada sobre construido contiene un solo DTE, el ID fijo
+del `SetDTE` sigue siendo único dentro del documento XML.
+
+En `Caratula`, los datos de resolución se escriben en el orden exigido por
+`EnvioDTE_v10.xsd`: `FchResol`, `NroResol`, `TmstFirmaEnv`. `NroResol` admite
+el valor `0` porque su tipo XSD es un entero no negativo.
+
 La raíz declara explícitamente:
 
 ```xml
@@ -73,9 +87,32 @@ haya quedado inválido silenciosamente.
 - codificación: `ISO-8859-1`;
 - declaración XML exacta en la primera línea;
 - `EnvioDTE` comienza en la segunda línea;
+- atributos de la raíz en el orden lexical del XML aceptado:
+  namespaces, `xsi:schemaLocation` y `version`;
 - no se emite el atributo `standalone`;
-- sin indentación automática;
+- nodos de whitespace LF-only e indentación de dos espacios insertados de
+  forma determinista antes de firmar;
+- `DD` se excluye de esa operación para conservar exactamente los bytes
+  cubiertos por `FRMT`;
+- sin indentación automática del `Transformer`;
 - acceso externo de Transformer deshabilitado.
+
+El layout se fija antes de XMLDSig. No se permite aplicar pretty-print,
+normalización de finales de línea ni otra transformación textual sobre el XML
+firmado.
+
+Para facturas tipo 33, el constructor contrasta la suma de `Detalle/MontoItem`
+con los totales. Si coincide con `MntNeto`, los detalles se emiten como netos.
+Si coincide con `MntTotal` y difiere de `MntNeto`, incorpora
+`IdDoc/MntBruto=1` antes de firmar. Si no coincide con ninguno, detiene la
+construcción con `INCONSISTENT_AMOUNTS`; no firma un DTE tributariamente
+ambiguo.
+
+El `Transformer` de JAXP puede ordenar primero los atributos sin namespace. El
+normalizador lexical de infraestructura corrige únicamente la etiqueta de
+apertura `EnvioDTE`; no cambia `SetDTE`, `DTE`, `Documento`, `DD` ni
+`Signature`. El firmador repite esa normalización sobre la salida final y
+revalida inmediatamente las dos firmas.
 
 ## Límites
 

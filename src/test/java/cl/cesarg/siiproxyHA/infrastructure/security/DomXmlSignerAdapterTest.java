@@ -12,9 +12,11 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 
+import javax.xml.XMLConstants;
 import javax.xml.crypto.dsig.CanonicalizationMethod;
 import javax.xml.crypto.dsig.DigestMethod;
 import javax.xml.crypto.dsig.SignatureMethod;
+import javax.xml.crypto.dsig.Transform;
 import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -31,6 +33,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -87,14 +90,114 @@ class DomXmlSignerAdapterTest {
                 "#DTE-105",
                 textAttribute(document, "Reference", "URI")
         );
+        assertEquals(
+                Transform.ENVELOPED,
+                textAttribute(document, "Transform", "Algorithm")
+        );
         assertTrue(xml.contains(new String(expectedDd, StandardCharsets.ISO_8859_1)));
+        assertTrue(xml.contains("</Documento>\n<Signature"));
+        assertTrue(xml.contains("</Signature>\n</DTE>"));
+        assertFalse(xml.contains("\r"));
+        assertFalse(xml.contains("&#13;"));
         assertEquals(1, document.getElementsByTagNameNS(DSIG_NAMESPACE, "Signature").getLength());
+        assertDocumentoSignedInfoNamespaces(document);
+        assertBase64LineWidth64(document, "SignatureValue");
+        assertBase64LineWidth64(document, "Modulus");
+        assertBase64LineWidth64(document, "Exponent");
+        assertBase64LineWidth64(document, "X509Certificate");
 
         Element keyInfo = (Element) document
                 .getElementsByTagNameNS(DSIG_NAMESPACE, "KeyInfo")
                 .item(0);
         assertEquals("KeyValue", firstElement(keyInfo).getLocalName());
         assertEquals("X509Data", nextElement(firstElement(keyInfo)).getLocalName());
+    }
+
+    @Test
+    void signsDocumentoAndSetDteOnOneDomWithAcceptedReferenceTransform()
+            throws Exception {
+        Fixture fixture = fixture();
+
+        XmlSignerPort.SignedXml signed = signer().signChain(
+                new XmlSignerPort.ChainedSigningRequest(
+                        unsignedXml(),
+                        "DTE-105",
+                        "SetDTE-test",
+                        fixture.descriptor(),
+                        XmlSignerPort.SignatureProfile.SII_LEGACY_RSA_SHA1
+                )
+        );
+
+        String xml = new String(signed.xml(), StandardCharsets.ISO_8859_1);
+        Document document = parse(signed.xml());
+        assertTrue(xml.startsWith(
+                DomDteXmlBuilderAdapter.XML_DECLARATION
+                        + SiiXmlLexicalNormalizer.ACCEPTED_ROOT
+        ));
+        assertEquals(XmlSignerPort.SignatureTarget.SET_DTE, signed.target());
+        assertEquals("#SetDTE-test", signed.referenceUri());
+        assertEquals(
+                2,
+                document.getElementsByTagNameNS(DSIG_NAMESPACE, "Signature").getLength()
+        );
+        assertEquals(
+                "#DTE-105",
+                ((Element) document.getElementsByTagNameNS(
+                        DSIG_NAMESPACE,
+                        "Reference"
+                ).item(0)).getAttribute("URI")
+        );
+        assertEquals(
+                "#SetDTE-test",
+                ((Element) document.getElementsByTagNameNS(
+                        DSIG_NAMESPACE,
+                        "Reference"
+                ).item(1)).getAttribute("URI")
+        );
+        var transforms = document.getElementsByTagNameNS(DSIG_NAMESPACE, "Transform");
+        assertEquals(2, transforms.getLength());
+        assertEquals(
+                Transform.ENVELOPED,
+                ((Element) transforms.item(0)).getAttribute("Algorithm")
+        );
+        assertEquals(
+                Transform.ENVELOPED,
+                ((Element) transforms.item(1)).getAttribute("Algorithm")
+        );
+        var signatures = document.getElementsByTagNameNS(
+                DSIG_NAMESPACE,
+                "Signature"
+        );
+        assertEquals(
+                java.util.List.of("SignedInfo", "SignatureValue", "KeyInfo"),
+                directChildNames((Element) signatures.item(0))
+        );
+        assertEquals(
+                java.util.List.of("SignedInfo", "SignatureValue", "KeyInfo"),
+                directChildNames((Element) signatures.item(1))
+        );
+        assertEquals(
+                java.util.List.of(
+                        "CanonicalizationMethod",
+                        "SignatureMethod",
+                        "Reference"
+                ),
+                directChildNames((Element) document.getElementsByTagNameNS(
+                        DSIG_NAMESPACE,
+                        "SignedInfo"
+                ).item(0))
+        );
+        assertEquals(
+                java.util.List.of("KeyValue", "X509Data"),
+                directChildNames((Element) document.getElementsByTagNameNS(
+                        DSIG_NAMESPACE,
+                        "KeyInfo"
+                ).item(0))
+        );
+        assertTrue(xml.contains("</Documento>\n<Signature"));
+        assertTrue(xml.contains("</SetDTE>\n<Signature"));
+        assertFalse(xml.contains("\r"));
+        assertFalse(xml.contains("&#13;"));
     }
 
     @Test
@@ -178,6 +281,15 @@ class DomXmlSignerAdapterTest {
                         "Reference"
                 ).item(1)).getAttribute("URI")
         );
+        String xml = new String(signedEnvelope.xml(), StandardCharsets.ISO_8859_1);
+        assertTrue(xml.contains("</SetDTE>\n<Signature"));
+        assertFalse(xml.contains("\r"));
+        assertFalse(xml.contains("&#13;"));
+        assertChainedSignedInfoNamespaces(document);
+        assertBase64LineWidth64(document, "SignatureValue");
+        assertBase64LineWidth64(document, "Modulus");
+        assertBase64LineWidth64(document, "Exponent");
+        assertBase64LineWidth64(document, "X509Certificate");
     }
 
     @Test
@@ -331,7 +443,7 @@ class DomXmlSignerAdapterTest {
     private byte[] unsignedXml() {
         return """
                 <?xml version="1.0" encoding="ISO-8859-1" standalone="no"?>
-                <EnvioDTE xmlns="http://www.sii.cl/SiiDte" version="1.0"><SetDTE ID="SetDTE-test"><Caratula/><DTE version="1.0"><Documento ID="DTE-105"><Encabezado/><TED version="1.0"><DD><IT1>Piñón &amp; engranaje</IT1></DD><FRMT algoritmo="SHA1withRSA">signed</FRMT></TED><TmstFirma>2026-07-24T12:30:45</TmstFirma></Documento></DTE></SetDTE></EnvioDTE>
+                <EnvioDTE xmlns="http://www.sii.cl/SiiDte" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sii.cl/SiiDte EnvioDTE_v10.xsd" version="1.0"><SetDTE ID="SetDTE-test"><Caratula/><DTE version="1.0"><Documento ID="DTE-105"><Encabezado/><TED version="1.0"><DD><IT1>Piñón &amp; engranaje</IT1></DD><FRMT algoritmo="SHA1withRSA">signed</FRMT></TED><TmstFirma>2026-07-24T12:30:45</TmstFirma></Documento></DTE></SetDTE></EnvioDTE>
                 """.getBytes(StandardCharsets.ISO_8859_1);
     }
 
@@ -352,6 +464,82 @@ class DomXmlSignerAdapterTest {
         ).item(0)).getAttribute(attribute);
     }
 
+    private void assertDocumentoSignedInfoNamespaces(Document document) {
+        Element signedInfo = (Element) document.getElementsByTagNameNS(
+                DSIG_NAMESPACE,
+                "SignedInfo"
+        ).item(0);
+        assertEquals(
+                DSIG_NAMESPACE,
+                signedInfo.getAttributeNS(
+                        XMLConstants.XMLNS_ATTRIBUTE_NS_URI,
+                        XMLConstants.XMLNS_ATTRIBUTE
+                )
+        );
+        assertFalse(signedInfo.hasAttributeNS(
+                XMLConstants.XMLNS_ATTRIBUTE_NS_URI,
+                "xsi"
+        ));
+    }
+
+    private void assertChainedSignedInfoNamespaces(Document document) {
+        var signedInfos = document.getElementsByTagNameNS(
+                DSIG_NAMESPACE,
+                "SignedInfo"
+        );
+        assertEquals(2, signedInfos.getLength());
+        Element documentSignedInfo = (Element) signedInfos.item(0);
+        Element envelopeSignedInfo = (Element) signedInfos.item(1);
+        assertEquals(
+                DSIG_NAMESPACE,
+                documentSignedInfo.getAttributeNS(
+                        XMLConstants.XMLNS_ATTRIBUTE_NS_URI,
+                        XMLConstants.XMLNS_ATTRIBUTE
+                )
+        );
+        assertFalse(documentSignedInfo.hasAttributeNS(
+                XMLConstants.XMLNS_ATTRIBUTE_NS_URI,
+                "xsi"
+        ));
+        assertEquals(
+                DSIG_NAMESPACE,
+                envelopeSignedInfo.getAttributeNS(
+                        XMLConstants.XMLNS_ATTRIBUTE_NS_URI,
+                        XMLConstants.XMLNS_ATTRIBUTE
+                )
+        );
+        assertEquals(
+                DomDteXmlBuilderAdapter.XSI_NAMESPACE,
+                envelopeSignedInfo.getAttributeNS(
+                        XMLConstants.XMLNS_ATTRIBUTE_NS_URI,
+                        "xsi"
+                )
+        );
+    }
+
+    private void assertBase64LineWidth64(Document document, String localName) {
+        var elements = document.getElementsByTagNameNS(DSIG_NAMESPACE, localName);
+        for (int elementIndex = 0; elementIndex < elements.getLength(); elementIndex++) {
+            String value = elements.item(elementIndex).getTextContent();
+            assertFalse(value.contains("\r"));
+            String[] lines = value.split("\n");
+            for (int lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+                String line = lines[lineIndex];
+                assertTrue(
+                        line.length() <= 64,
+                        localName + " contains a Base64 line longer than 64 characters"
+                );
+                if (lineIndex < lines.length - 1) {
+                    assertEquals(
+                            64,
+                            line.length(),
+                            localName + " contains an intermediate Base64 line shorter than 64"
+                    );
+                }
+            }
+        }
+    }
+
     private Element firstElement(Element parent) {
         for (Node node = parent.getFirstChild(); node != null; node = node.getNextSibling()) {
             if (node instanceof Element element) {
@@ -359,6 +547,16 @@ class DomXmlSignerAdapterTest {
             }
         }
         return null;
+    }
+
+    private java.util.List<String> directChildNames(Element parent) {
+        java.util.List<String> names = new java.util.ArrayList<>();
+        for (Node node = parent.getFirstChild(); node != null; node = node.getNextSibling()) {
+            if (node instanceof Element child) {
+                names.add(child.getLocalName());
+            }
+        }
+        return names;
     }
 
     private Element nextElement(Element element) {

@@ -128,6 +128,24 @@ class ComprehensiveDteXmlValidatorAdapterTest {
         );
     }
 
+    @Test
+    void rejectsGrossDetailAmountsWithoutMntBrutoIndicator() throws Exception {
+        String valid = new String(signedEnvioDte(), StandardCharsets.ISO_8859_1);
+        String missingGrossIndicator = valid.replace(
+                "<MontoItem>100000</MontoItem>",
+                "<MontoItem>119000</MontoItem>"
+        );
+
+        DteXmlValidatorPort.ValidationResult result = validate(
+                missingGrossIndicator.getBytes(StandardCharsets.ISO_8859_1)
+        );
+
+        assertTrue(
+                hasCode(result, "DTE_AMOUNT_PROFILE"),
+                () -> result.issues().toString()
+        );
+    }
+
     private DteXmlValidatorPort.ValidationResult validate(byte[] xml) {
         return validator.validate(new DteXmlValidatorPort.ValidationRequest(
                 xml,

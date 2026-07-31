@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -45,6 +46,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -176,6 +178,20 @@ class DteEmissionIntegrationTest {
                 .getContentAsByteArray());
         assertThat(Base64.getDecoder().decode(downloaded.path("xmlBase64").asText()))
                 .isEqualTo(storedXml);
+
+        byte[] downloadedXml = mockMvc.perform(get(
+                        "/api/v1/dte/{id}/xml",
+                        documentId
+                ).accept(MediaType.APPLICATION_XML))
+                .andExpect(status().isOk())
+                .andExpect(header().string(
+                        HttpHeaders.CONTENT_TYPE,
+                        "application/xml;charset=ISO-8859-1"
+                ))
+                .andReturn()
+                .getResponse()
+                .getContentAsByteArray();
+        assertThat(downloadedXml).isEqualTo(storedXml);
 
         JsonNode replay = postDte(requestJson);
         assertThat(replay.path("documentId").asText()).isEqualTo(documentId.toString());
@@ -330,17 +346,48 @@ class DteEmissionIntegrationTest {
 
         String encoded = new String(xml, java.nio.charset.StandardCharsets.ISO_8859_1);
         assertThat(encoded).startsWith(
-                "<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\n<EnvioDTE"
+                "<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\n"
+                        + "<EnvioDTE xmlns=\"http://www.sii.cl/SiiDte\""
+                        + " xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\""
+                        + " xsi:schemaLocation=\"http://www.sii.cl/SiiDte EnvioDTE_v10.xsd\""
+                        + " version=\"1.0\">"
         );
         assertThat(encoded).doesNotContain("standalone=");
+        assertThat(encoded).doesNotContain("\r", "&#13;");
         assertThat(encoded).contains("<EnvioDTE");
+        assertThat(encoded).contains(">\n  <SetDTE");
+        assertThat(encoded).contains("</SetDTE>\n  <Signature");
         assertThat(encoded).contains(
                 "xsi:schemaLocation=\"http://www.sii.cl/SiiDte EnvioDTE_v10.xsd\""
         );
         assertThat(encoded).contains("<FRMT algoritmo=\"SHA1withRSA\">");
-        assertThat(encoded).contains("URI=\"#DTE-" + CafTestFixtureFactory.FOLIO_DESDE + "\"");
-        assertThat(encoded).contains("URI=\"#SetDTE-" + documentId + "\"");
+        assertThat(encoded).contains(
+                "<Documento ID=\"DTE_T33F" + CafTestFixtureFactory.FOLIO_DESDE + "\""
+        );
+        assertThat(encoded).contains(
+                "URI=\"#DTE_T33F" + CafTestFixtureFactory.FOLIO_DESDE + "\""
+        );
+        assertThat(encoded).contains("<SetDTE ID=\"SIIPROXY_SetDoc\"");
+        assertThat(encoded).contains("URI=\"#SIIPROXY_SetDoc\"");
+        assertThat(encoded).contains(
+                "<Signature xmlns=\"http://www.w3.org/2000/09/xmldsig#\">"
+                        + "<SignedInfo xmlns=\"http://www.w3.org/2000/09/xmldsig#\">"
+        );
+        assertThat(encoded).contains(
+                "<SignedInfo xmlns=\"http://www.w3.org/2000/09/xmldsig#\""
+                        + " xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">"
+        );
         assertThat(encoded).contains("SignatureMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#rsa-sha1\"");
+        assertThat(encoded).contains(
+                "Transform Algorithm=\"http://www.w3.org/2000/09/xmldsig#enveloped-signature\""
+        );
+        assertThat(encoded).doesNotContain(
+                "Transform Algorithm=\"http://www.w3.org/TR/2001/REC-xml-c14n-20010315\""
+        );
+        assertThat(encoded.lines().mapToInt(String::length).max().orElse(0))
+                .isLessThan(1_000);
+        assertThat(encoded.getBytes(java.nio.charset.StandardCharsets.ISO_8859_1))
+                .isEqualTo(xml);
     }
 
     private void assertPersistenceAndIdempotency(UUID documentId,

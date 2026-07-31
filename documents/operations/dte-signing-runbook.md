@@ -223,6 +223,12 @@ curl --fail \
   -o "local-secrets/${DOCUMENT_ID}.xml"
 ```
 
+Esta variante del endpoint responde el arreglo de bytes almacenado, con
+`Content-Type: application/xml;charset=ISO-8859-1`; no convierte el XML a
+`String` ni lo recodifica. Para automatizaciones se recomienda esta descarga o
+decodificar directamente `xmlBase64`. No copiar el cuerpo desde una consola o
+editor de texto.
+
 ## Regenerar un XML firmado existente
 
 Cuando cambie el formato de construcción, se corrija una incompatibilidad o se
@@ -251,6 +257,48 @@ cinco minutos. Después de una respuesta `200`, descargar nuevamente el XML y
 usar el nuevo `sha256`; una copia obtenida antes de la regeneración queda
 obsoleta.
 
+Antes de enviarlo al SII, conservar y revisar los bytes exactos descargados:
+
+```bash
+XML_PATH="local-secrets/${DOCUMENT_ID}.xml"
+
+shasum -a 256 "${XML_PATH}"
+file "${XML_PATH}"
+grep -n $'\r' "${XML_PATH}"
+grep -n '&#13;' "${XML_PATH}"
+awk 'length($0) > 999 { print NR, length($0); invalid=1 } END { exit invalid }' \
+  "${XML_PATH}"
+grep -c \
+  'Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"' \
+  "${XML_PATH}"
+grep -n 'SetDTE ID="SIIPROXY_SetDoc"' "${XML_PATH}"
+grep -n 'Documento ID="DTE_T[0-9][0-9]*F[0-9][0-9]*"' "${XML_PATH}"
+grep -n '<SignedInfo xmlns="http://www.w3.org/2000/09/xmldsig#">' \
+  "${XML_PATH}"
+grep -n '<SignedInfo xmlns="http://www.w3.org/2000/09/xmldsig#" xmlns:xsi=' \
+  "${XML_PATH}"
+grep -n -A 2 '<FchResol>' "${XML_PATH}"
+grep -n '<NroResol>0</NroResol>' "${XML_PATH}"
+sed -n '2p' "${XML_PATH}"
+```
+
+Los dos primeros `grep` deben terminar sin coincidencias y `awk` no debe
+imprimir líneas; el último `grep -c` debe imprimir `2`, uno para `Documento` y
+otro para `SetDTE`. El archivo debe conservar la declaración `ISO-8859-1`. El
+hash debe coincidir con `sha256` informado por la API. Enviar exactamente este
+archivo.
+
+Las referencias de las dos firmas deben usar respectivamente
+`URI="#DTE_T{TipoDTE}F{Folio}"` y `URI="#SIIPROXY_SetDoc"`. Si la resolución
+de la empresa es `0`, debe aparecer dentro de `Caratula`, después de
+`FchResol` y antes de `TmstFirmaEnv`.
+
+La segunda línea debe comenzar con los atributos en este orden:
+`xmlns`, `xmlns:xsi`, `xsi:schemaLocation`, `version`.
+Abrirlo y volver a guardarlo desde un editor, convertirlo a UTF-8, cambiar sus
+saltos de línea o aplicar pretty-print invalida las firmas aunque el XML siga
+siendo legible.
+
 ## Idempotencia y reintentos
 
 - El cliente debe generar un `id` estable antes del primer envío.
@@ -275,6 +323,8 @@ obsoleta.
 | CAF ausente o folio fuera de rango | Consultar `/api/v1/caf/folios/status`. | Cargar el CAF correcto para RUT, tipo 33 y rango; no modificar el XML. |
 | `TED_FRMT_INVALID` | Revisar que el CAF tenga `RSASK` y que no haya sido alterado. | Reponer el CAF original autorizado. |
 | `XSD_VALIDATION` | Descargar el XML y contrastar el código de validación con el payload. | Corregir datos o constructor; no editar el XML ya firmado. |
+| `DTE_AMOUNT_PROFILE` | Sumar `Detalle/MontoItem` y comparar con `MntNeto` y `MntTotal`. | Informar montos netos, o montos brutos coherentes para que el constructor emita `MntBruto=1`; luego regenerar. |
+| SII `DTE-3-505 Firma DTE Incorrecta` | Comparar el SHA-256 del archivo enviado con el descargado; buscar CR, `&#13;`, conversión a UTF-8 o pretty-print. | Regenerar, descargar y enviar los bytes exactos. Si coinciden, preservar XML y respuesta SII para revisar autorización o cadena del certificado. |
 | `FAILED_RECOVERABLE` por storage | Verificar MinIO, bucket, permisos y red. | Restaurar el servicio y reenviar el mismo `id`. |
 | `PENDING_STORE` reciente | Revisar `updated_at` y salud de MinIO. | Esperar el intento en curso; no lanzar replays concurrentes. |
 | `PENDING_STORE` por más de cinco minutos | Confirmar que no existe otro proceso activo. | Reenviar el mismo request e `id`; el claim obsoleto puede ser recuperado. |

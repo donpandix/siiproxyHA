@@ -44,6 +44,7 @@ public class DomDteXmlBuilderAdapter implements DteXmlBuilderPort {
     public static final String XML_ENCODING = "ISO-8859-1";
     public static final String XML_DECLARATION =
             "<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\n";
+    private static final String SET_DTE_ID = "SIIPROXY_SetDoc";
     private static final DateTimeFormatter SII_TIMESTAMP =
             DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
 
@@ -53,8 +54,11 @@ public class DomDteXmlBuilderAdapter implements DteXmlBuilderPort {
         try {
             validateTedBytes(request);
             Document document = newDocumentBuilder().newDocument();
-            String setDteId = "SetDTE-" + request.dteId();
-            String documentoId = "DTE-" + request.document().folio();
+            String setDteId = SET_DTE_ID;
+            String documentoId = "DTE_T%dF%d".formatted(
+                    request.document().tipoDte(),
+                    request.document().folio()
+            );
 
             Element envioDte = element(document, "EnvioDTE");
             envioDte.setAttributeNS(
@@ -96,6 +100,7 @@ public class DomDteXmlBuilderAdapter implements DteXmlBuilderPort {
                     request.ted().generatedAt().format(SII_TIMESTAMP)
             );
 
+            formatElementContent(envioDte, 0);
             byte[] xml = serialize(document);
             byte[] serializedDd = extractDd(xml);
             try {
@@ -150,6 +155,9 @@ public class DomDteXmlBuilderAdapter implements DteXmlBuilderPort {
         textChild(idDoc, "TipoDTE", Integer.toString(document.tipoDte()));
         textChild(idDoc, "Folio", Long.toString(document.folio()));
         textChild(idDoc, "FchEmis", document.emissionDate().toString());
+        if (usesGrossItemAmounts(request)) {
+            textChild(idDoc, "MntBruto", "1");
+        }
 
         Element emisor = child(encabezado, "Emisor");
         textChild(emisor, "RUTEmisor", issuer.rutEmisor());
@@ -201,6 +209,46 @@ public class DomDteXmlBuilderAdapter implements DteXmlBuilderPort {
             }
             textChild(detalle, "MontoItem", nullableNumber(item.amount()));
         }
+    }
+
+    private boolean usesGrossItemAmounts(BuildRequest request) {
+        DocumentData document = request.document();
+        if (document.tipoDte() != 33
+                || document.netAmount() == null
+                || request.items().isEmpty()) {
+            return false;
+        }
+
+        long itemTotal = 0;
+        try {
+            for (ItemData item : request.items()) {
+                if (item.amount() == null || item.amount() < 0) {
+                    throw failure(
+                            BuildFailureReason.INCONSISTENT_AMOUNTS,
+                            "Every taxable detail must have a non-negative MontoItem"
+                    );
+                }
+                itemTotal = Math.addExact(itemTotal, item.amount());
+            }
+        } catch (ArithmeticException exception) {
+            throw new DteXmlBuildException(
+                    BuildFailureReason.INCONSISTENT_AMOUNTS,
+                    "Detail amount sum exceeds the supported range",
+                    exception
+            );
+        }
+
+        if (itemTotal == document.netAmount()) {
+            return false;
+        }
+        if (document.netAmount() != document.totalAmount()
+                && itemTotal == document.totalAmount()) {
+            return true;
+        }
+        throw failure(
+                BuildFailureReason.INCONSISTENT_AMOUNTS,
+                "Detail MontoItem sum must equal MntNeto, or MntTotal when MntBruto=1"
+        );
     }
 
     private void appendReferences(Element documento, List<ReferenceData> references) {
@@ -349,8 +397,45 @@ public class DomDteXmlBuilderAdapter implements DteXmlBuilderPort {
         try (ByteArrayOutputStream output = new ByteArrayOutputStream()) {
             output.writeBytes(XML_DECLARATION.getBytes(StandardCharsets.ISO_8859_1));
             transformer.transform(new DOMSource(document), new StreamResult(output));
-            return output.toByteArray();
+            return SiiXmlLexicalNormalizer.alignEnvioDteRoot(
+                    output.toByteArray()
+            );
         }
+    }
+
+    /**
+     * Adds deterministic LF-only layout before signing while preserving the exact signed DD.
+     */
+    private void formatElementContent(Element parent, int depth) {
+        if ("DD".equals(parent.getLocalName())) {
+            return;
+        }
+        List<Element> children = new ArrayList<>();
+        List<Node> whitespace = new ArrayList<>();
+        for (Node node = parent.getFirstChild(); node != null; node = node.getNextSibling()) {
+            if (node instanceof Element child) {
+                children.add(child);
+            } else if (node.getNodeType() == Node.TEXT_NODE
+                    && node.getNodeValue().isBlank()) {
+                whitespace.add(node);
+            }
+        }
+        if (children.isEmpty()) {
+            return;
+        }
+        whitespace.forEach(parent::removeChild);
+        for (Element child : children) {
+            formatElementContent(child, depth + 1);
+            parent.insertBefore(
+                    parent.getOwnerDocument().createTextNode(
+                            "\n" + "  ".repeat(depth + 1)
+                    ),
+                    child
+            );
+        }
+        parent.appendChild(parent.getOwnerDocument().createTextNode(
+                "\n" + "  ".repeat(depth)
+        ));
     }
 
     private DocumentBuilder newDocumentBuilder() throws Exception {

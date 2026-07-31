@@ -8,6 +8,8 @@ import cl.cesarg.siiproxyHA.domain.port.TedGeneratorPort;
 import cl.cesarg.siiproxyHA.infrastructure.persistence.CafRepository;
 import org.junit.jupiter.api.Test;
 import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.Node;
 
 import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -20,6 +22,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
@@ -44,8 +47,8 @@ class DomDteXmlBuilderAdapterTest {
         String xml = new String(built.xml(), StandardCharsets.ISO_8859_1);
         Document document = parse(built.xml());
 
-        assertEquals("DTE-105", built.documentoId());
-        assertTrue(built.setDteId().startsWith("SetDTE-"));
+        assertEquals("DTE_T33F105", built.documentoId());
+        assertEquals("SIIPROXY_SetDoc", built.setDteId());
         assertEquals("ISO-8859-1", built.encoding());
         assertEquals(
                 DomDteXmlBuilderAdapter.SII_NAMESPACE,
@@ -73,10 +76,97 @@ class DomDteXmlBuilderAdapterTest {
                 ).item(0).getTextContent()
         );
         assertTrue(xml.contains(new String(dd, StandardCharsets.ISO_8859_1)));
-        assertTrue(xml.startsWith(DomDteXmlBuilderAdapter.XML_DECLARATION));
+        assertTrue(xml.startsWith(
+                DomDteXmlBuilderAdapter.XML_DECLARATION
+                        + SiiXmlLexicalNormalizer.ACCEPTED_ROOT
+        ));
+        assertEquals(List.of("SetDTE"), directChildNames(document, "EnvioDTE"));
+        assertEquals(
+                List.of("Caratula", "DTE"),
+                directChildNames(document, "SetDTE")
+        );
+        assertEquals(
+                List.of(
+                        "RutEmisor",
+                        "RutEnvia",
+                        "RutReceptor",
+                        "FchResol",
+                        "NroResol",
+                        "TmstFirmaEnv",
+                        "SubTotDTE"
+                ),
+                directChildNames(document, "Caratula")
+        );
+        assertEquals(
+                List.of("IdDoc", "Emisor", "Receptor", "Totales"),
+                directChildNames(document, "Encabezado")
+        );
+        assertEquals(
+                List.of("NroLinDet", "NmbItem", "QtyItem", "PrcItem", "MontoItem"),
+                directChildNames(document, "Detalle")
+        );
+        assertTrue(xml.contains(">\n  <SetDTE"));
+        assertTrue(xml.contains("\n    <DTE version=\"1.0\">"));
+        assertTrue(xml.contains("</Documento>\n    </DTE>"));
+        assertFalse(xml.contains("\r"));
+        assertFalse(xml.contains("&#13;"));
         assertFalse(xml.contains("standalone="));
         assertFalse(xml.contains("xmlns=\"\""));
         assertFalse(xml.contains("<Signature"));
+    }
+
+    @Test
+    void writesZeroResolutionNumberInSchemaOrderInsideCaratula() throws Exception {
+        byte[] dd = "<DD><F>105</F></DD>"
+                .getBytes(StandardCharsets.ISO_8859_1);
+        DteXmlBuilderPort.BuildRequest base = request(ted(dd));
+        DteXmlBuilderPort.IssuerData issuer = base.issuer();
+        DteXmlBuilderPort.BuildRequest zeroResolution =
+                new DteXmlBuilderPort.BuildRequest(
+                        base.dteId(),
+                        new DteXmlBuilderPort.IssuerData(
+                                issuer.rutEmisor(),
+                                issuer.rutEnvia(),
+                                issuer.razonSocial(),
+                                issuer.giro(),
+                                issuer.acteco(),
+                                issuer.direccion(),
+                                issuer.comuna(),
+                                issuer.resolutionDate(),
+                                0
+                        ),
+                        base.receiver(),
+                        base.document(),
+                        base.items(),
+                        base.references(),
+                        base.ted()
+                );
+
+        Document document = parse(builder.build(zeroResolution).xml());
+        Element caratula = (Element) document.getElementsByTagNameNS(
+                DomDteXmlBuilderAdapter.SII_NAMESPACE,
+                "Caratula"
+        ).item(0);
+
+        assertEquals(
+                List.of(
+                        "RutEmisor",
+                        "RutEnvia",
+                        "RutReceptor",
+                        "FchResol",
+                        "NroResol",
+                        "TmstFirmaEnv",
+                        "SubTotDTE"
+                ),
+                directChildNames(document, "Caratula")
+        );
+        assertEquals(
+                "0",
+                caratula.getElementsByTagNameNS(
+                        DomDteXmlBuilderAdapter.SII_NAMESPACE,
+                        "NroResol"
+                ).item(0).getTextContent()
+        );
     }
 
     @Test
@@ -124,6 +214,89 @@ class DomDteXmlBuilderAdapterTest {
 
         assertEquals(
                 DteXmlBuilderPort.BuildFailureReason.INVALID_TED,
+                exception.getReason()
+        );
+    }
+
+    @Test
+    void declaresGrossAmountsWhenDetailsSumToTotalInsteadOfNet() throws Exception {
+        byte[] dd = "<DD><F>105</F></DD>"
+                .getBytes(StandardCharsets.ISO_8859_1);
+        TedGeneratorPort.GeneratedTed ted = ted(dd);
+        DteXmlBuilderPort.BuildRequest base = request(ted);
+        DteXmlBuilderPort.BuildRequest grossAmounts =
+                new DteXmlBuilderPort.BuildRequest(
+                        base.dteId(),
+                        base.issuer(),
+                        base.receiver(),
+                        new DteXmlBuilderPort.DocumentData(
+                                33,
+                                105,
+                                LocalDate.of(2026, 7, 24),
+                                100_000L,
+                                new BigDecimal("19"),
+                                19_000L,
+                                119_000L
+                        ),
+                        List.of(new DteXmlBuilderPort.ItemData(
+                                1,
+                                "Piñón & engranaje",
+                                null,
+                                1.0,
+                                119_000.0,
+                                119_000L
+                        )),
+                        base.references(),
+                        ted
+                );
+
+        DteXmlBuilderPort.BuiltDteXml built = builder.build(grossAmounts);
+        Document document = parse(built.xml());
+
+        assertEquals(
+                List.of("TipoDTE", "Folio", "FchEmis", "MntBruto"),
+                directChildNames(document, "IdDoc")
+        );
+        assertEquals(
+                "1",
+                document.getElementsByTagNameNS(
+                        DomDteXmlBuilderAdapter.SII_NAMESPACE,
+                        "MntBruto"
+                ).item(0).getTextContent()
+        );
+    }
+
+    @Test
+    void rejectsDetailAmountsThatMatchNeitherNetNorTotal() {
+        byte[] dd = "<DD><F>105</F></DD>"
+                .getBytes(StandardCharsets.ISO_8859_1);
+        TedGeneratorPort.GeneratedTed ted = ted(dd);
+        DteXmlBuilderPort.BuildRequest base = request(ted);
+        DteXmlBuilderPort.BuildRequest inconsistent =
+                new DteXmlBuilderPort.BuildRequest(
+                        base.dteId(),
+                        base.issuer(),
+                        base.receiver(),
+                        base.document(),
+                        List.of(new DteXmlBuilderPort.ItemData(
+                                1,
+                                "Piñón & engranaje",
+                                null,
+                                1.0,
+                                90_000.0,
+                                90_000L
+                        )),
+                        base.references(),
+                        ted
+                );
+
+        DteXmlBuilderPort.DteXmlBuildException exception = assertThrows(
+                DteXmlBuilderPort.DteXmlBuildException.class,
+                () -> builder.build(inconsistent)
+        );
+
+        assertEquals(
+                DteXmlBuilderPort.BuildFailureReason.INCONSISTENT_AMOUNTS,
                 exception.getReason()
         );
     }
@@ -234,6 +407,20 @@ class DomDteXmlBuilderAdapterTest {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         factory.setNamespaceAware(true);
         return factory.newDocumentBuilder().parse(new ByteArrayInputStream(xml));
+    }
+
+    private List<String> directChildNames(Document document, String parentName) {
+        Element parent = (Element) document.getElementsByTagNameNS(
+                DomDteXmlBuilderAdapter.SII_NAMESPACE,
+                parentName
+        ).item(0);
+        List<String> names = new ArrayList<>();
+        for (Node node = parent.getFirstChild(); node != null; node = node.getNextSibling()) {
+            if (node instanceof Element child) {
+                names.add(child.getLocalName());
+            }
+        }
+        return names;
     }
 
     private Caf caf(byte[] authorizationXml) {

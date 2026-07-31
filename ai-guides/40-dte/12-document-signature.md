@@ -22,14 +22,28 @@ El único perfil habilitado en esta etapa es `SII_LEGACY_RSA_SHA1`:
 
 - referencia interna única `#Documento/@ID`;
 - digest SHA-1;
-- canonicalización inclusiva C14N 1.0 como transform de la referencia;
+- transform de referencia XMLDSig `enveloped-signature`, igual al XML de
+  interoperabilidad aceptado;
 - canonicalización inclusiva C14N 1.0 de `SignedInfo`;
 - firma RSA-SHA1;
 - `KeyInfo` con `KeyValue` seguido por `X509Data`.
 
 `Signature` se inserta como hermano de `Documento`, inmediatamente después,
-dentro de `DTE`. No se usa el transform `enveloped-signature` porque la firma
-queda fuera del elemento referenciado.
+dentro de `DTE`. Aunque queda fuera del elemento referenciado, el perfil
+declara `enveloped-signature` para igualar la estructura interoperable aceptada
+por el SII.
+
+Antes de firmar se incorpora el separador LF que ubicará `Signature` en una
+línea distinta; de este modo el whitespace que afecta al digest de `DTE`
+posterior ya es definitivo. Después de firmar solo se normalizan los campos
+Base64 de XMLDSig (`SignatureValue`, `Modulus`, `Exponent` y
+`X509Certificate`) a líneas de hasta 64 caracteres separadas por LF. No se
+emiten CR ni entidades `&#13;`.
+
+El `SignedInfo` materializa explícitamente
+`xmlns="http://www.w3.org/2000/09/xmldsig#"` antes de validar la firma. Aunque
+el namespace se heredaría de `Signature`, esta representación lexical iguala
+el XML aceptado usado como referencia de interoperabilidad.
 
 ## Controles de seguridad
 
@@ -43,16 +57,19 @@ Antes de abrir el PKCS#12 se procesa el XML con JAXP seguro y se exige:
 
 La estructura se comprueba nuevamente dentro de la operación que recibe la
 clave privada. La resolución de URI se limita a la referencia interna exacta.
-La validación criptográfica se ejecuta sobre una nueva lectura de los bytes
-serializados. La excepción de validación segura del JDK se deshabilita
+La firma interna se valida en el mismo DOM antes de calcular el digest de
+`SetDTE` y ambas firmas se validan nuevamente sobre la única serialización
+final. La excepción de validación segura del JDK se deshabilita
 únicamente en ese contexto controlado porque el perfil legado del SII exige
 RSA-SHA1.
 
 El contenido `DD` se compara byte a byte antes y después de la firma. Si la
 serialización altera el material cubierto por `FRMT`, no se entrega el XML.
+Tampoco se aplica pretty-print después de la firma, porque cualquier cambio de
+whitespace dentro de `Documento` invalidaría su digest.
 
 La credencial se vuelve a validar al abrirse y su contador de uso se incrementa
-solamente después de obtener una firma serializada criptográficamente válida.
+solamente después de obtener las dos firmas serializadas y validadas.
 Las claves privadas, certificados y contraseñas no atraviesan los puertos de
 dominio.
 

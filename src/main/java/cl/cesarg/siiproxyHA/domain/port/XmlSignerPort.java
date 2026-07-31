@@ -16,6 +16,11 @@ public interface XmlSignerPort {
      */
     SignedXml sign(SigningRequest request);
 
+    /**
+     * Signs Documento and SetDTE on the same XML tree and serializes only once.
+     */
+    SignedXml signChain(ChainedSigningRequest request);
+
     enum SignatureTarget {
         DOCUMENTO,
         SET_DTE
@@ -82,6 +87,38 @@ public interface XmlSignerPort {
             }
             referenceId = referenceId.trim();
             Objects.requireNonNull(target, "target is required");
+            Objects.requireNonNull(credential, "credential is required");
+            Objects.requireNonNull(profile, "profile is required");
+            xml = Arrays.copyOf(xml, xml.length);
+        }
+
+        @Override
+        public byte[] xml() {
+            return Arrays.copyOf(xml, xml.length);
+        }
+    }
+
+    record ChainedSigningRequest(
+            byte[] xml,
+            String documentoId,
+            String setDteId,
+            SigningCredentialDescriptor credential,
+            SignatureProfile profile
+    ) {
+
+        public ChainedSigningRequest {
+            Objects.requireNonNull(xml, "xml is required");
+            if (xml.length == 0) {
+                throw new IllegalArgumentException("xml must not be empty");
+            }
+            if (documentoId == null || documentoId.isBlank()) {
+                throw new IllegalArgumentException("documentoId is required");
+            }
+            if (setDteId == null || setDteId.isBlank()) {
+                throw new IllegalArgumentException("setDteId is required");
+            }
+            documentoId = documentoId.trim();
+            setDteId = setDteId.trim();
             Objects.requireNonNull(credential, "credential is required");
             Objects.requireNonNull(profile, "profile is required");
             xml = Arrays.copyOf(xml, xml.length);

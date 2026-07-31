@@ -92,6 +92,7 @@ public class ComprehensiveDteXmlValidatorAdapter implements DteXmlValidatorPort 
 
         validateSchema(xml, request.profile(), issues);
         validateIds(document, issues);
+        validateAmountProfiles(document, issues);
         validateTedSignatures(document, xml, issues);
         validateXmlSignatures(document, request.profile(), issues);
         Arrays.fill(xml, (byte) 0);
@@ -143,6 +144,102 @@ public class ComprehensiveDteXmlValidatorAdapter implements DteXmlValidatorPort 
                 element.setIdAttribute("ID", true);
             }
         }
+    }
+
+    private void validateAmountProfiles(
+            Document document,
+            List<ValidationIssue> issues
+    ) {
+        var documentos = document.getElementsByTagNameNS(SII_NAMESPACE, "Documento");
+        for (int index = 0; index < documentos.getLength(); index++) {
+            Element documento = (Element) documentos.item(index);
+            try {
+                Element encabezado = requireDirectChild(
+                        documento,
+                        SII_NAMESPACE,
+                        "Encabezado"
+                );
+                Element idDoc = requireDirectChild(encabezado, SII_NAMESPACE, "IdDoc");
+                if (!"33".equals(
+                        requireDirectChild(
+                                idDoc,
+                                SII_NAMESPACE,
+                                "TipoDTE"
+                        ).getTextContent()
+                )) {
+                    continue;
+                }
+                if (!directChildren(
+                        documento,
+                        SII_NAMESPACE,
+                        "DscRcgGlobal"
+                ).isEmpty()) {
+                    continue;
+                }
+
+                List<Element> details = directChildren(
+                        documento,
+                        SII_NAMESPACE,
+                        "Detalle"
+                );
+                if (details.isEmpty() || hasExemptDetail(details)) {
+                    continue;
+                }
+
+                long detailTotal = 0;
+                for (Element detail : details) {
+                    detailTotal = Math.addExact(
+                            detailTotal,
+                            Long.parseLong(requireDirectChild(
+                                    detail,
+                                    SII_NAMESPACE,
+                                    "MontoItem"
+                            ).getTextContent())
+                    );
+                }
+
+                Element totals = requireDirectChild(
+                        encabezado,
+                        SII_NAMESPACE,
+                        "Totales"
+                );
+                Element grossIndicator = optionalDirectChild(
+                        idDoc,
+                        SII_NAMESPACE,
+                        "MntBruto"
+                );
+                String expectedElement = grossIndicator == null
+                        ? "MntNeto"
+                        : "MntTotal";
+                long expected = Long.parseLong(requireDirectChild(
+                        totals,
+                        SII_NAMESPACE,
+                        expectedElement
+                ).getTextContent());
+                if (detailTotal != expected) {
+                    issues.add(error(
+                            "DTE_AMOUNT_PROFILE",
+                            "Detalle MontoItem sum does not match " + expectedElement,
+                            reference(documento)
+                    ));
+                }
+            } catch (Exception exception) {
+                issues.add(error(
+                        "DTE_AMOUNT_PROFILE",
+                        "DTE amount profile cannot be validated",
+                        reference(documento)
+                ));
+            }
+        }
+    }
+
+    private boolean hasExemptDetail(List<Element> details) {
+        for (Element detail : details) {
+            if (optionalDirectChild(detail, SII_NAMESPACE, "IndExe") != null) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void validateTedSignatures(
@@ -451,7 +548,7 @@ public class ComprehensiveDteXmlValidatorAdapter implements DteXmlValidatorPort 
         return expectedUri.equals(reference.getURI())
                 && DigestMethod.SHA1.equals(reference.getDigestMethod().getAlgorithm())
                 && reference.getTransforms().size() == 1
-                && CanonicalizationMethod.INCLUSIVE.equals(
+                && Transform.ENVELOPED.equals(
                         ((Transform) reference.getTransforms().getFirst()).getAlgorithm()
                 );
     }
@@ -535,6 +632,20 @@ public class ComprehensiveDteXmlValidatorAdapter implements DteXmlValidatorPort 
             );
         }
         return matches.getFirst();
+    }
+
+    private Element optionalDirectChild(
+            Element parent,
+            String namespace,
+            String localName
+    ) {
+        List<Element> matches = directChildren(parent, namespace, localName);
+        if (matches.size() > 1) {
+            throw new IllegalArgumentException(
+                    parent.getLocalName() + " contains duplicate " + localName
+            );
+        }
+        return matches.isEmpty() ? null : matches.getFirst();
     }
 
     private List<Element> directChildren(
