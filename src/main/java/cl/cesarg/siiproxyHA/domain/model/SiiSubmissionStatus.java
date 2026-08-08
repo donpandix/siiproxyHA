@@ -8,6 +8,8 @@ public enum SiiSubmissionStatus {
     PROCESSED,
     REJECTED,
     OUTCOME_UNKNOWN,
+    RECONCILING,
+    MANUAL_REVIEW_REQUIRED,
     FAILED_RECOVERABLE,
     FAILED_FATAL
 }

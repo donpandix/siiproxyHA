@@ -46,3 +46,4 @@ local-secrets/
 *.jks
 *.keystore
 **/FoliosSII_*.xml
+resultados/**

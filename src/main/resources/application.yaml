@@ -66,17 +66,25 @@ sii:
   token-ttl: ${SII_TOKEN_TTL:55m}
   worker-delay: ${SII_WORKER_DELAY:2s}
   claim-lease: ${SII_CLAIM_LEASE:5m}
+  max-upload-attempts: ${SII_MAX_UPLOAD_ATTEMPTS:5}
+  upload-retry-initial-delay: ${SII_UPLOAD_RETRY_INITIAL_DELAY:30s}
+  upload-retry-max-delay: ${SII_UPLOAD_RETRY_MAX_DELAY:5m}
+  max-reconciliation-attempts: ${SII_MAX_RECONCILIATION_ATTEMPTS:5}
+  reconciliation-initial-delay: ${SII_RECONCILIATION_INITIAL_DELAY:2m}
+  reconciliation-max-delay: ${SII_RECONCILIATION_MAX_DELAY:30m}
   max-status-queries: ${SII_MAX_STATUS_QUERIES:30}
   certification:
     seed-url: ${SII_CERT_SEED_URL:https://maullin.sii.cl/DTEWS/CrSeed.jws}
     token-url: ${SII_CERT_TOKEN_URL:https://maullin.sii.cl/DTEWS/GetTokenFromSeed.jws}
     upload-url: ${SII_CERT_UPLOAD_URL:https://maullin.sii.cl/cgi_dte/UPL/DTEUpload}
     status-url: ${SII_CERT_STATUS_URL:https://maullin.sii.cl/DTEWS/QueryEstUp.jws}
+    dte-status-url: ${SII_CERT_DTE_STATUS_URL:https://maullin.sii.cl/DTEWS/services/QueryEstDteAv}
   production:
     seed-url: ${SII_PROD_SEED_URL:https://palena.sii.cl/DTEWS/CrSeed.jws}
     token-url: ${SII_PROD_TOKEN_URL:https://palena.sii.cl/DTEWS/GetTokenFromSeed.jws}
     upload-url: ${SII_PROD_UPLOAD_URL:https://palena.sii.cl/cgi_dte/UPL/DTEUpload}
     status-url: ${SII_PROD_STATUS_URL:https://palena.sii.cl/DTEWS/QueryEstUp.jws}
+    dte-status-url: ${SII_PROD_DTE_STATUS_URL:https://palena.sii.cl/DTEWS/services/QueryEstDteAv}
 
 # Actuator management settings
 management:

@@ -4,6 +4,7 @@ import cl.cesarg.siiproxyHA.domain.model.Dte;
 import cl.cesarg.siiproxyHA.domain.model.SiiSubmissionStatus;
 import cl.cesarg.siiproxyHA.domain.model.Tenant;
 import cl.cesarg.siiproxyHA.domain.port.SiiAuthenticationPort;
+import cl.cesarg.siiproxyHA.domain.port.SiiDteReconciliationPort;
 import cl.cesarg.siiproxyHA.domain.port.SiiStatusQueryPort;
 import cl.cesarg.siiproxyHA.domain.port.SiiUploadPort;
 import cl.cesarg.siiproxyHA.domain.port.StoragePort;
@@ -12,12 +13,16 @@ import cl.cesarg.siiproxyHA.infrastructure.persistence.DteStatusEventRepository;
 import cl.cesarg.siiproxyHA.infrastructure.persistence.SiiSubmissionEntity;
 import cl.cesarg.siiproxyHA.infrastructure.persistence.SiiSubmissionRepository;
 import cl.cesarg.siiproxyHA.infrastructure.sii.SiiProperties;
+import cl.cesarg.siiproxyHA.infrastructure.sii.SiiTransportException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import java.io.InputStream;
 import java.security.MessageDigest;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.HexFormat;
@@ -42,6 +47,7 @@ class SiiSubmissionProcessorTest {
     private SiiAuthenticationPort authentication;
     private SiiUploadPort upload;
     private SiiStatusQueryPort statusQuery;
+    private SiiDteReconciliationPort reconciliation;
     private SiiSubmissionProcessor processor;
     private SiiSubmissionEntity submission;
     private Dte dte;
@@ -56,6 +62,7 @@ class SiiSubmissionProcessorTest {
         authentication = mock(SiiAuthenticationPort.class);
         upload = mock(SiiUploadPort.class);
         statusQuery = mock(SiiStatusQueryPort.class);
+        reconciliation = mock(SiiDteReconciliationPort.class);
         SiiProperties properties = new SiiProperties();
         properties.setMaxStatusQueries(5);
         processor = new SiiSubmissionProcessor(
@@ -66,6 +73,7 @@ class SiiSubmissionProcessorTest {
                 authentication,
                 upload,
                 statusQuery,
+                reconciliation,
                 properties
         );
 
@@ -76,6 +84,11 @@ class SiiSubmissionProcessorTest {
         dte.setId(UUID.randomUUID());
         dte.setTenant(tenant);
         dte.setRutEnvia("10438332-7");
+        dte.setRutRecep("60803000-K");
+        dte.setTipoDte(33);
+        dte.setFolio(189L);
+        dte.setFchEmis(LocalDate.of(2026, 8, 7));
+        dte.setMntTotal(1190L);
         dte.setCreatedAt(Instant.now());
         dte.setUpdatedAt(Instant.now());
 
@@ -92,6 +105,7 @@ class SiiSubmissionProcessorTest {
         submission.setStatus(SiiSubmissionStatus.UPLOADING);
         submission.setAttemptCount(1);
         submission.setStatusQueryCount(0);
+        submission.setReconciliationCount(0);
         submission.setNextAttemptAt(OffsetDateTime.now(ZoneOffset.UTC));
         submission.setCreatedAt(OffsetDateTime.now(ZoneOffset.UTC));
         submission.setUpdatedAt(OffsetDateTime.now(ZoneOffset.UTC));
@@ -163,6 +177,30 @@ class SiiSubmissionProcessorTest {
         );
     }
 
+    @ParameterizedTest
+    @CsvSource({"1,30", "2,60", "3,120", "4,240"})
+    void safeUploadRetryUsesExponentialWait(int attempt, long expectedSeconds) {
+        submission.setAttemptCount(attempt);
+        when(upload.upload(any())).thenReturn(new SiiUploadPort.UploadResult(
+                200, "5", null, "No autenticado", new byte[0]
+        ));
+        OffsetDateTime before = OffsetDateTime.now(ZoneOffset.UTC);
+
+        processor.process(new SiiSubmissionClaimService.Claim(
+                submission.getId(),
+                SiiSubmissionClaimService.Operation.UPLOAD
+        ));
+
+        OffsetDateTime after = OffsetDateTime.now(ZoneOffset.UTC);
+        assertEquals(SiiSubmissionStatus.PENDING_UPLOAD, submission.getStatus());
+        org.junit.jupiter.api.Assertions.assertFalse(
+                submission.getNextAttemptAt().isBefore(before.plusSeconds(expectedSeconds))
+        );
+        org.junit.jupiter.api.Assertions.assertFalse(
+                submission.getNextAttemptAt().isAfter(after.plusSeconds(expectedSeconds))
+        );
+    }
+
     @Test
     void processedTrackIdCompletesSubmission() {
         submission.setStatus(SiiSubmissionStatus.STATUS_QUERYING);
@@ -226,6 +264,88 @@ class SiiSubmissionProcessorTest {
                 "SII processed the submission with rejected documents",
                 submission.getLastError()
         );
+    }
+
+    @Test
+    void ambiguousTransportFailureSchedulesReconciliationWithoutBlindUploadRetry() {
+        when(upload.upload(any())).thenThrow(new SiiTransportException(
+                "timeout after upload started",
+                true,
+                new java.io.IOException("timeout")
+        ));
+
+        processor.process(new SiiSubmissionClaimService.Claim(
+                submission.getId(),
+                SiiSubmissionClaimService.Operation.UPLOAD
+        ));
+
+        assertEquals(SiiSubmissionStatus.OUTCOME_UNKNOWN, submission.getStatus());
+        assertEquals("TRANSPORT_AMBIGUOUS", submission.getFailureClass());
+        assertNotNull(submission.getOutcomeUnknownAt());
+        assertNotNull(submission.getNextAttemptAt());
+    }
+
+    @Test
+    void safeFailuresStopAfterFiveTotalUploadAttempts() {
+        submission.setAttemptCount(5);
+        when(upload.upload(any())).thenThrow(new SiiTransportException(
+                "connection failed before request was sent",
+                false,
+                new java.io.IOException("connection refused")
+        ));
+
+        processor.process(new SiiSubmissionClaimService.Claim(
+                submission.getId(),
+                SiiSubmissionClaimService.Operation.UPLOAD
+        ));
+
+        assertEquals(SiiSubmissionStatus.FAILED_RECOVERABLE, submission.getStatus());
+        assertNotNull(submission.getCompletedAt());
+    }
+
+    @Test
+    void reconciliationWithTrackIdContinuesNormalStatusPolling() {
+        submission.setStatus(SiiSubmissionStatus.RECONCILING);
+        submission.setReconciliationCount(1);
+        when(reconciliation.query(any())).thenReturn(
+                new SiiDteReconciliationPort.ReconciliationResult(
+                        200, "0", true, "DOK", "Documento recibido",
+                        253772832L, "123", false,
+                        "<RESPUESTA/>".getBytes(java.nio.charset.StandardCharsets.ISO_8859_1)
+                )
+        );
+
+        processor.process(new SiiSubmissionClaimService.Claim(
+                submission.getId(),
+                SiiSubmissionClaimService.Operation.RECONCILIATION
+        ));
+
+        assertEquals(SiiSubmissionStatus.RECEIVED, submission.getStatus());
+        assertEquals(253772832L, submission.getTrackId());
+        assertNotNull(submission.getReconciledAt());
+        assertEquals(253772832L, dte.getSiiTrackId());
+    }
+
+    @Test
+    void twoExplicitNotReceivedAnswersAllowExactArtifactRetry() {
+        submission.setStatus(SiiSubmissionStatus.RECONCILING);
+        submission.setReconciliationCount(2);
+        when(reconciliation.query(any())).thenReturn(
+                new SiiDteReconciliationPort.ReconciliationResult(
+                        200, "0", false, "FAU", "Documento no recibido",
+                        null, "123", false,
+                        "<RESPUESTA/>".getBytes(java.nio.charset.StandardCharsets.ISO_8859_1)
+                )
+        );
+
+        processor.process(new SiiSubmissionClaimService.Claim(
+                submission.getId(),
+                SiiSubmissionClaimService.Operation.RECONCILIATION
+        ));
+
+        assertEquals(SiiSubmissionStatus.PENDING_UPLOAD, submission.getStatus());
+        assertEquals("CONFIRMED_NOT_RECEIVED", submission.getFailureClass());
+        assertNotNull(submission.getReconciledAt());
     }
 
     private String sha256(byte[] bytes) throws Exception {

@@ -9,6 +9,8 @@ crea automáticamente un trabajo persistente para:
 2. subir al SII los bytes exactos almacenados en MinIO;
 3. conservar el `TRACKID` de recepción;
 4. consultar `QueryEstUp` hasta obtener un estado terminal.
+5. reconciliar por `QueryEstDteAv` cualquier upload cuyo resultado sea ambiguo,
+   antes de decidir si corresponde reenviar.
 
 La configuración predeterminada apunta exclusivamente a certificación. El
 acceso a producción requiere simultáneamente:
@@ -43,11 +45,18 @@ siendo la fuente de verdad del trabajo pendiente.
 | `SII_TOKEN_TTL` | `55m` | Vigencia conservadora del caché local. |
 | `SII_WORKER_DELAY` | `2s` | Espera entre búsquedas de trabajo. |
 | `SII_CLAIM_LEASE` | `5m` | Umbral para detectar un worker abandonado. |
+| `SII_MAX_UPLOAD_ATTEMPTS` | `5` | Máximo total de intentos de upload, incluido el inicial. |
+| `SII_UPLOAD_RETRY_INITIAL_DELAY` | `30s` | Espera inicial para un reintento seguro. |
+| `SII_UPLOAD_RETRY_MAX_DELAY` | `5m` | Tope del backoff exponencial de upload. |
+| `SII_MAX_RECONCILIATION_ATTEMPTS` | `5` | Máximo de consultas para resolver un resultado ambiguo. |
+| `SII_RECONCILIATION_INITIAL_DELAY` | `2m` | Espera inicial antes de consultar por el DTE. |
+| `SII_RECONCILIATION_MAX_DELAY` | `30m` | Tope del backoff de reconciliación. |
 | `SII_MAX_STATUS_QUERIES` | `30` | Máximo de consultas por `TRACKID`. |
 | `SII_CERT_SEED_URL` | Maullín `CrSeed.jws` | Semilla de certificación. |
 | `SII_CERT_TOKEN_URL` | Maullín `GetTokenFromSeed.jws` | Token de certificación. |
 | `SII_CERT_UPLOAD_URL` | Maullín `DTEUpload` | Upload de certificación. |
 | `SII_CERT_STATUS_URL` | Maullín `QueryEstUp.jws` | Consulta de certificación. |
+| `SII_CERT_DTE_STATUS_URL` | Maullín `QueryEstDteAv` | Reconciliación por datos y firma del Documento. |
 
 Los endpoints se validan como HTTPS bajo `sii.cl` durante el inicio. No pueden
 ser enviados como parámetros de la API.
@@ -62,7 +71,9 @@ ser enviados como parámetros de la API.
 | `STATUS_QUERYING` | Un worker está ejecutando `QueryEstUp`. |
 | `PROCESSED` | `QueryEstUp` devolvió `EPR` sin documentos rechazados. |
 | `REJECTED` | El upload fue rechazado o se recibió `RSC`, `RFR` o `RCT`. |
-| `OUTCOME_UNKNOWN` | El upload pudo llegar al SII, pero no existe confirmación segura. No se reintenta automáticamente. |
+| `OUTCOME_UNKNOWN` | El upload pudo llegar al SII, pero no existe confirmación segura; espera reconciliación. |
+| `RECONCILING` | Un worker consulta `QueryEstDteAv` sin reenviar el XML. |
+| `MANUAL_REVIEW_REQUIRED` | Cinco consultas no resolvieron el resultado o el SII informó datos incompatibles. |
 | `FAILED_RECOVERABLE` | Se agotaron intentos seguros de preparación/autenticación/consulta. |
 | `FAILED_FATAL` | Falla no recuperable del trabajo. |
 
@@ -71,6 +82,14 @@ Un `EPR` con `RECHAZADOS > 0` termina como `REJECTED`. Los contadores
 API. Los estados `PDR`, `SOK`, `CRT` y `FOK` mantienen el envío en seguimiento.
 La primera consulta se programa después de dos minutos para archivos menores a
 30 KiB y después de seis minutos para archivos mayores o iguales.
+
+Los fallos seguros se reintentan con backoff de 30, 60, 120 y 240 segundos. Un
+timeout o corte posterior al inicio del upload no se reenvía directamente: se
+consulta al SII con emisor, receptor, tipo, folio, fecha, monto y la firma del
+`Documento`. Solo dos respuestas explícitas consecutivas de “no recibido”
+permiten volver a encolar los mismos bytes, siempre respetando el máximo total
+de cinco uploads. El tamaño y SHA-256 del artefacto se verifican antes de cada
+operación.
 
 ## Observación por API
 
@@ -110,6 +129,7 @@ select id,
        status,
        attempt_count,
        status_query_count,
+       reconciliation_count,
        track_id,
        sii_status,
        sii_glosa,
@@ -126,12 +146,13 @@ Trabajos que requieren intervención:
 ```sql
 select *
 from sii_submission
-where status in ('OUTCOME_UNKNOWN', 'FAILED_RECOVERABLE', 'FAILED_FATAL')
+where status in ('OUTCOME_UNKNOWN', 'MANUAL_REVIEW_REQUIRED', 'FAILED_RECOVERABLE', 'FAILED_FATAL')
 order by updated_at desc;
 ```
 
-Un `OUTCOME_UNKNOWN` no debe cambiarse manualmente a `PENDING_UPLOAD` sin
-comprobar antes si el SII recibió el archivo.
+Un `OUTCOME_UNKNOWN` se reconcilia automáticamente. No debe cambiarse
+manualmente a `PENDING_UPLOAD`; si las consultas se agotan, el trabajo pasa a
+`MANUAL_REVIEW_REQUIRED` y requiere comprobación operacional.
 
 ## Verificación de certificación pendiente
 

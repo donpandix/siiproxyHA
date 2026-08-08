@@ -42,25 +42,35 @@ public class SiiSubmissionClaimService {
         if (previous == SiiSubmissionStatus.UPLOADING) {
             submission.setStatus(SiiSubmissionStatus.OUTCOME_UNKNOWN);
             submission.setLastError(
-                    "Worker lease expired during upload; automatic resend is disabled"
+                    "Worker lease expired during upload; reconciliation required before resend"
             );
-            submission.setCompletedAt(now);
+            submission.setFailureClass("OUTCOME_UNKNOWN");
+            submission.setOutcomeUnknownAt(now);
+            submission.setNextAttemptAt(now.plus(properties.getReconciliationInitialDelay()));
+            submission.setClaimedAt(null);
             submission.setUpdatedAt(now);
             repository.save(submission);
             return Optional.of(new Claim(submission.getId(), Operation.NONE));
         }
-        Operation operation = previous == SiiSubmissionStatus.PENDING_UPLOAD
-                ? Operation.UPLOAD
-                : Operation.STATUS_QUERY;
-        submission.setStatus(operation == Operation.UPLOAD
-                ? SiiSubmissionStatus.UPLOADING
-                : SiiSubmissionStatus.STATUS_QUERYING);
+        Operation operation = switch (previous) {
+            case PENDING_UPLOAD -> Operation.UPLOAD;
+            case OUTCOME_UNKNOWN, RECONCILING -> Operation.RECONCILIATION;
+            default -> Operation.STATUS_QUERY;
+        };
+        submission.setStatus(switch (operation) {
+            case UPLOAD -> SiiSubmissionStatus.UPLOADING;
+            case STATUS_QUERY -> SiiSubmissionStatus.STATUS_QUERYING;
+            case RECONCILIATION -> SiiSubmissionStatus.RECONCILING;
+            case NONE -> throw new IllegalStateException("NONE cannot claim a submission");
+        });
         submission.setClaimedAt(now);
         submission.setUpdatedAt(now);
         if (operation == Operation.UPLOAD) {
-            submission.setAttemptCount(submission.getAttemptCount() + 1);
+            submission.setAttemptCount(count(submission.getAttemptCount()) + 1);
+        } else if (operation == Operation.STATUS_QUERY) {
+            submission.setStatusQueryCount(count(submission.getStatusQueryCount()) + 1);
         } else {
-            submission.setStatusQueryCount(submission.getStatusQueryCount() + 1);
+            submission.setReconciliationCount(count(submission.getReconciliationCount()) + 1);
         }
         repository.save(submission);
         return Optional.of(new Claim(submission.getId(), operation));
@@ -69,8 +79,13 @@ public class SiiSubmissionClaimService {
     public enum Operation {
         UPLOAD,
         STATUS_QUERY,
+        RECONCILIATION,
         NONE
     }
 
     public record Claim(UUID submissionId, Operation operation) {}
+
+    private int count(Integer value) {
+        return value == null ? 0 : value;
+    }
 }

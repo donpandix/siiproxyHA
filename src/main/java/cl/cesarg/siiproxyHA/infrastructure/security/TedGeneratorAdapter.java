@@ -79,12 +79,13 @@ public class TedGeneratorAdapter implements TedGeneratorPort {
 
         LocalDateTime generatedAt = LocalDateTime.now(clock).withNano(0);
         byte[] ddXml = buildDd(request, caf, generatedAt);
+        byte[] signingDd = SiiTedSignatureNormalizer.normalize(ddXml);
         byte[] signature = null;
         try {
             signature = privateKeyResolver.withPrivateKey(caf, privateKey -> {
                 Signature signer = Signature.getInstance("SHA1withRSA");
                 signer.initSign(privateKey);
-                signer.update(ddXml);
+                signer.update(signingDd);
                 return signer.sign();
             });
             String frmt = Base64.getEncoder().encodeToString(signature);
@@ -113,6 +114,7 @@ public class TedGeneratorAdapter implements TedGeneratorPort {
             if (signature != null) {
                 Arrays.fill(signature, (byte) 0);
             }
+            Arrays.fill(signingDd, (byte) 0);
             Arrays.fill(ddXml, (byte) 0);
         }
     }

@@ -5,6 +5,7 @@ import cl.cesarg.siiproxyHA.domain.model.DteStatusEvent;
 import cl.cesarg.siiproxyHA.domain.model.RutUtils;
 import cl.cesarg.siiproxyHA.domain.model.SiiSubmissionStatus;
 import cl.cesarg.siiproxyHA.domain.port.SiiAuthenticationPort;
+import cl.cesarg.siiproxyHA.domain.port.SiiDteReconciliationPort;
 import cl.cesarg.siiproxyHA.domain.port.SiiStatusQueryPort;
 import cl.cesarg.siiproxyHA.domain.port.SiiUploadPort;
 import cl.cesarg.siiproxyHA.domain.port.StoragePort;
@@ -43,6 +44,7 @@ public class SiiSubmissionProcessor {
     private final SiiAuthenticationPort authentication;
     private final SiiUploadPort upload;
     private final SiiStatusQueryPort statusQuery;
+    private final SiiDteReconciliationPort reconciliation;
     private final SiiProperties properties;
 
     public SiiSubmissionProcessor(
@@ -53,6 +55,7 @@ public class SiiSubmissionProcessor {
             SiiAuthenticationPort authentication,
             SiiUploadPort upload,
             SiiStatusQueryPort statusQuery,
+            SiiDteReconciliationPort reconciliation,
             SiiProperties properties
     ) {
         this.submissions = submissions;
@@ -62,13 +65,14 @@ public class SiiSubmissionProcessor {
         this.authentication = authentication;
         this.upload = upload;
         this.statusQuery = statusQuery;
+        this.reconciliation = reconciliation;
         this.properties = properties;
     }
 
     public void process(SiiSubmissionClaimService.Claim claim) {
         if (claim.operation() == SiiSubmissionClaimService.Operation.NONE) {
-            log.error(
-                    "SII submission {} moved to OUTCOME_UNKNOWN after an expired upload lease",
+            log.warn(
+                    "SII submission {} scheduled for reconciliation after an expired upload lease",
                     claim.submissionId()
             );
             return;
@@ -77,10 +81,11 @@ public class SiiSubmissionProcessor {
                 .orElseThrow(() -> new IllegalStateException("SII submission not found"));
         Dte dte = dteRepository.findWithTenantById(submission.getDteId())
                 .orElseThrow(() -> new IllegalStateException("DTE for SII submission not found"));
-        if (claim.operation() == SiiSubmissionClaimService.Operation.UPLOAD) {
-            processUpload(submission, dte);
-        } else {
-            processStatusQuery(submission, dte);
+        switch (claim.operation()) {
+            case UPLOAD -> processUpload(submission, dte);
+            case STATUS_QUERY -> processStatusQuery(submission, dte);
+            case RECONCILIATION -> processReconciliation(submission, dte);
+            case NONE -> throw new IllegalStateException("NONE was handled before loading submission");
         }
     }
 
@@ -117,6 +122,7 @@ public class SiiSubmissionProcessor {
                 submission.setUploadedAt(now);
                 submission.setNextAttemptAt(now.plus(statusDelay(submission)));
                 submission.setLastError(null);
+                submission.setFailureClass(null);
                 updateDte(dte, result.trackId(), result.status(), result.reason(), true);
                 event(dte, "UPLOAD_RECEIVED", result.status(), result.reason(), submission);
                 log.info(
@@ -137,18 +143,20 @@ public class SiiSubmissionProcessor {
                         dte.getId()
                 );
             } else {
-                SiiSubmissionStatus failureStatus =
-                        result.httpStatus() >= 500
-                                ? SiiSubmissionStatus.OUTCOME_UNKNOWN
-                                : SiiSubmissionStatus.REJECTED;
-                submission.setStatus(failureStatus);
-                submission.setCompletedAt(now);
                 submission.setLastError(truncate(
                         "SII upload was not accepted"
                                 + (result.reason() == null ? "" : ": " + result.reason()),
                         500
                 ));
-                event(dte, "UPLOAD_REJECTED", result.status(), result.reason(), submission);
+                if (result.httpStatus() >= 500 || result.status() == null) {
+                    scheduleOutcomeUnknown(submission, now, "REMOTE_RESPONSE_AMBIGUOUS");
+                    event(dte, "UPLOAD_OUTCOME_UNKNOWN", result.status(), result.reason(), submission);
+                } else {
+                    submission.setStatus(SiiSubmissionStatus.REJECTED);
+                    submission.setCompletedAt(now);
+                    submission.setFailureClass("REMOTE_REJECTION");
+                    event(dte, "UPLOAD_REJECTED", result.status(), result.reason(), submission);
+                }
                 log.warn(
                         "SII certification upload not accepted submission={} dte={} http={} status={}",
                         submission.getId(),
@@ -265,6 +273,114 @@ public class SiiSubmissionProcessor {
         }
     }
 
+    private void processReconciliation(SiiSubmissionEntity submission, Dte dte) {
+        try {
+            byte[] xml = storage.get(submission.getArtifactKey());
+            requireArtifactIntegrity(submission, xml);
+            RutParts company = splitRut(dte.getTenant().getRutEmisor(), "rutEmisor");
+            RutParts receiver = splitRut(dte.getRutRecep(), "rutRecep");
+            requireReconciliationData(dte);
+            SiiDteReconciliationPort.ReconciliationResult result = reconciliation.query(
+                    new SiiDteReconciliationPort.ReconciliationRequest(
+                            submission.getEnvironment(),
+                            company.number(),
+                            company.dv(),
+                            receiver.number(),
+                            receiver.dv(),
+                            dte.getTipoDte(),
+                            dte.getFolio(),
+                            dte.getFchEmis(),
+                            dte.getMntTotal(),
+                            xml,
+                            token(submission, dte)
+                    )
+            );
+            storeResponse(submission, "reconciliation", result.rawResponse());
+            OffsetDateTime now = now();
+            String documentStatus = normalizeStatus(result.documentStatus());
+            submission.setRemoteHttpStatus(result.httpStatus());
+            submission.setSiiStatus(documentStatus);
+            submission.setSiiGlosa(truncate(result.glosa(), 500));
+            submission.setNumeroAtencion(truncate(result.numeroAtencion(), 40));
+            submission.setClaimedAt(null);
+            submission.setUpdatedAt(now);
+
+            if (result.authenticationRejected()) {
+                invalidateToken(submission, dte);
+                retryReconciliation(submission, "SII reconciliation rejected the cached token");
+                event(dte, "RECONCILIATION_TOKEN_REJECTED", result.headerStatus(), result.glosa(), submission);
+            } else if (Boolean.TRUE.equals(result.received()) && "DOK".equals(documentStatus)) {
+                submission.setTrackId(result.trackId());
+                submission.setReconciledAt(now);
+                submission.setFailureClass(null);
+                submission.setLastError(null);
+                if (result.trackId() != null) {
+                    submission.setStatus(SiiSubmissionStatus.RECEIVED);
+                    submission.setUploadedAt(now);
+                    submission.setNextAttemptAt(now.plus(statusDelay(submission)));
+                    updateDte(dte, result.trackId(), documentStatus, result.glosa(), true);
+                } else {
+                    submission.setStatus(SiiSubmissionStatus.PROCESSED);
+                    submission.setCompletedAt(now);
+                    updateDte(dte, null, documentStatus, result.glosa(), true);
+                }
+                event(dte, "UPLOAD_RECONCILED_RECEIVED", documentStatus, result.glosa(), submission);
+                submissions.save(submission);
+            } else if (Boolean.FALSE.equals(result.received())) {
+                handleExplicitNotReceived(submission, dte, result, now);
+            } else if (Boolean.TRUE.equals(result.received())) {
+                submission.setStatus(SiiSubmissionStatus.MANUAL_REVIEW_REQUIRED);
+                submission.setCompletedAt(now);
+                submission.setFailureClass("RECONCILIATION_MISMATCH");
+                submission.setLastError(truncate(
+                        "SII reports the DTE as received but its data does not match: " + documentStatus,
+                        500
+                ));
+                event(dte, "RECONCILIATION_MISMATCH", documentStatus, result.glosa(), submission);
+                submissions.save(submission);
+            } else {
+                retryReconciliation(submission, "SII did not provide a conclusive reconciliation result");
+                event(dte, "RECONCILIATION_INCONCLUSIVE", result.headerStatus(), result.glosa(), submission);
+            }
+        } catch (Exception exception) {
+            retryReconciliation(submission, safeMessage(exception));
+            event(dte, "RECONCILIATION_FAILED", null, safeMessage(exception), submission);
+            log.warn(
+                    "SII DTE reconciliation failed submission={} dte={} attempt={} error={}",
+                    submission.getId(), dte.getId(), reconciliationCount(submission),
+                    exception.getClass().getSimpleName()
+            );
+        }
+    }
+
+    private void handleExplicitNotReceived(
+            SiiSubmissionEntity submission,
+            Dte dte,
+            SiiDteReconciliationPort.ReconciliationResult result,
+            OffsetDateTime now
+    ) {
+        if (reconciliationCount(submission) < 2) {
+            retryReconciliation(submission, "SII has not received the DTE; confirmation pending");
+            event(dte, "RECONCILIATION_NOT_RECEIVED", result.documentStatus(), result.glosa(), submission);
+            return;
+        }
+        submission.setReconciledAt(now);
+        submission.setClaimedAt(null);
+        submission.setUpdatedAt(now);
+        submission.setFailureClass("CONFIRMED_NOT_RECEIVED");
+        if (submission.getAttemptCount() < properties.getMaxUploadAttempts()) {
+            submission.setStatus(SiiSubmissionStatus.PENDING_UPLOAD);
+            submission.setNextAttemptAt(now.plus(uploadRetryDelay(submission.getAttemptCount())));
+            submission.setLastError("SII confirmed twice that the DTE was not received; exact artifact queued for retry");
+        } else {
+            submission.setStatus(SiiSubmissionStatus.FAILED_RECOVERABLE);
+            submission.setCompletedAt(now);
+            submission.setLastError("SII confirmed that the DTE was not received; upload attempt limit reached");
+        }
+        event(dte, "RECONCILIATION_CONFIRMED_NOT_RECEIVED", result.documentStatus(), result.glosa(), submission);
+        submissions.save(submission);
+    }
+
     private void handleUploadException(
             SiiSubmissionEntity submission,
             Dte dte,
@@ -275,8 +391,7 @@ public class SiiSubmissionProcessor {
         submission.setUpdatedAt(now);
         submission.setLastError(truncate(exception.getMessage(), 500));
         if (exception.isOutcomeUnknown()) {
-            submission.setStatus(SiiSubmissionStatus.OUTCOME_UNKNOWN);
-            submission.setCompletedAt(now);
+            scheduleOutcomeUnknown(submission, now, "TRANSPORT_AMBIGUOUS");
         } else {
             scheduleSafeUploadRetry(submission, now);
         }
@@ -319,8 +434,7 @@ public class SiiSubmissionProcessor {
         OffsetDateTime now = now();
         submission.setClaimedAt(null);
         submission.setUpdatedAt(now);
-        submission.setCompletedAt(now);
-        submission.setStatus(SiiSubmissionStatus.OUTCOME_UNKNOWN);
+        scheduleOutcomeUnknown(submission, now, "PERSISTENCE_AFTER_UPLOAD");
         submission.setLastError(truncate(
                 "Upload was invoked but its result could not be persisted: "
                         + safeMessage(exception),
@@ -344,20 +458,51 @@ public class SiiSubmissionProcessor {
             );
         }
         log.error(
-                "SII certification upload result persistence failed submission={} dte={}; automatic resend disabled",
+            "SII certification upload result persistence failed submission={} dte={}; reconciliation scheduled",
                 submission.getId(),
                 dte.getId()
         );
     }
 
     private void scheduleSafeUploadRetry(SiiSubmissionEntity submission, OffsetDateTime now) {
-        if (submission.getAttemptCount() >= 3) {
+        submission.setFailureClass("SAFE_RETRY");
+        if (submission.getAttemptCount() >= properties.getMaxUploadAttempts()) {
             submission.setStatus(SiiSubmissionStatus.FAILED_RECOVERABLE);
             submission.setCompletedAt(now);
         } else {
             submission.setStatus(SiiSubmissionStatus.PENDING_UPLOAD);
-            submission.setNextAttemptAt(now.plusSeconds(30L * submission.getAttemptCount()));
+            submission.setCompletedAt(null);
+            submission.setNextAttemptAt(now.plus(uploadRetryDelay(submission.getAttemptCount())));
         }
+    }
+
+    private void scheduleOutcomeUnknown(
+            SiiSubmissionEntity submission,
+            OffsetDateTime now,
+            String failureClass
+    ) {
+        submission.setStatus(SiiSubmissionStatus.OUTCOME_UNKNOWN);
+        submission.setFailureClass(failureClass);
+        submission.setOutcomeUnknownAt(now);
+        submission.setCompletedAt(null);
+        submission.setClaimedAt(null);
+        submission.setNextAttemptAt(now.plus(properties.getReconciliationInitialDelay()));
+    }
+
+    private void retryReconciliation(SiiSubmissionEntity submission, String error) {
+        OffsetDateTime now = now();
+        submission.setClaimedAt(null);
+        submission.setUpdatedAt(now);
+        submission.setLastError(truncate(error, 500));
+        if (reconciliationCount(submission) >= properties.getMaxReconciliationAttempts()) {
+            submission.setStatus(SiiSubmissionStatus.MANUAL_REVIEW_REQUIRED);
+            submission.setCompletedAt(now);
+            submission.setFailureClass("RECONCILIATION_EXHAUSTED");
+        } else {
+            submission.setStatus(SiiSubmissionStatus.OUTCOME_UNKNOWN);
+            submission.setNextAttemptAt(now.plus(reconciliationDelay(reconciliationCount(submission))));
+        }
+        submissions.save(submission);
     }
 
     private void retryStatusQuery(SiiSubmissionEntity submission, String error) {
@@ -475,6 +620,42 @@ public class SiiSubmissionProcessor {
         return submission.getArtifactSizeBytes() < SMALL_FILE_LIMIT
                 ? Duration.ofMinutes(2)
                 : Duration.ofMinutes(6);
+    }
+
+    private Duration uploadRetryDelay(int completedAttempts) {
+        return exponentialDelay(
+                properties.getUploadRetryInitialDelay(),
+                properties.getUploadRetryMaxDelay(),
+                Math.max(0, completedAttempts - 1)
+        );
+    }
+
+    private Duration reconciliationDelay(int completedAttempts) {
+        return exponentialDelay(
+                properties.getReconciliationInitialDelay(),
+                properties.getReconciliationMaxDelay(),
+                Math.max(0, completedAttempts - 1)
+        );
+    }
+
+    private Duration exponentialDelay(Duration initial, Duration maximum, int exponent) {
+        Duration delay = initial;
+        for (int index = 0; index < exponent && delay.compareTo(maximum) < 0; index++) {
+            if (delay.compareTo(maximum.dividedBy(2)) > 0) return maximum;
+            delay = delay.multipliedBy(2);
+        }
+        return delay.compareTo(maximum) > 0 ? maximum : delay;
+    }
+
+    private int reconciliationCount(SiiSubmissionEntity submission) {
+        return submission.getReconciliationCount() == null ? 0 : submission.getReconciliationCount();
+    }
+
+    private void requireReconciliationData(Dte dte) {
+        if (dte.getTipoDte() == null || dte.getFolio() == null || dte.getFchEmis() == null
+                || dte.getMntTotal() == null) {
+            throw new IllegalStateException("DTE data required for SII reconciliation is incomplete");
+        }
     }
 
     private RutParts splitRut(String value, String field) {

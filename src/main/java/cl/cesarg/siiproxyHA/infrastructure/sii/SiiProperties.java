@@ -20,6 +20,12 @@ public class SiiProperties {
     private Duration tokenTtl = Duration.ofMinutes(55);
     private Duration workerDelay = Duration.ofSeconds(2);
     private Duration claimLease = Duration.ofMinutes(5);
+    private int maxUploadAttempts = 5;
+    private Duration uploadRetryInitialDelay = Duration.ofSeconds(30);
+    private Duration uploadRetryMaxDelay = Duration.ofMinutes(5);
+    private int maxReconciliationAttempts = 5;
+    private Duration reconciliationInitialDelay = Duration.ofMinutes(2);
+    private Duration reconciliationMaxDelay = Duration.ofMinutes(30);
     private int maxStatusQueries = 30;
     private Endpoints certification = new Endpoints();
     private Endpoints production = new Endpoints();
@@ -38,11 +44,19 @@ public class SiiProperties {
                 || requestTimeout.isNegative() || requestTimeout.isZero()
                 || tokenTtl.isNegative() || tokenTtl.isZero()
                 || workerDelay.isNegative() || workerDelay.isZero()
-                || claimLease.isNegative() || claimLease.isZero()) {
+                || claimLease.isNegative() || claimLease.isZero()
+                || uploadRetryInitialDelay.isNegative() || uploadRetryInitialDelay.isZero()
+                || uploadRetryMaxDelay.isNegative() || uploadRetryMaxDelay.isZero()
+                || reconciliationInitialDelay.isNegative() || reconciliationInitialDelay.isZero()
+                || reconciliationMaxDelay.isNegative() || reconciliationMaxDelay.isZero()) {
             throw new IllegalStateException("SII durations must be positive");
         }
-        if (maxStatusQueries < 1) {
-            throw new IllegalStateException("sii.max-status-queries must be positive");
+        if (maxStatusQueries < 1 || maxUploadAttempts < 1 || maxReconciliationAttempts < 1) {
+            throw new IllegalStateException("SII maximum attempt counts must be positive");
+        }
+        if (uploadRetryMaxDelay.compareTo(uploadRetryInitialDelay) < 0
+                || reconciliationMaxDelay.compareTo(reconciliationInitialDelay) < 0) {
+            throw new IllegalStateException("SII maximum retry delays must not be shorter than initial delays");
         }
     }
 
@@ -86,6 +100,18 @@ public class SiiProperties {
     public void setWorkerDelay(Duration workerDelay) { this.workerDelay = workerDelay; }
     public Duration getClaimLease() { return claimLease; }
     public void setClaimLease(Duration claimLease) { this.claimLease = claimLease; }
+    public int getMaxUploadAttempts() { return maxUploadAttempts; }
+    public void setMaxUploadAttempts(int maxUploadAttempts) { this.maxUploadAttempts = maxUploadAttempts; }
+    public Duration getUploadRetryInitialDelay() { return uploadRetryInitialDelay; }
+    public void setUploadRetryInitialDelay(Duration uploadRetryInitialDelay) { this.uploadRetryInitialDelay = uploadRetryInitialDelay; }
+    public Duration getUploadRetryMaxDelay() { return uploadRetryMaxDelay; }
+    public void setUploadRetryMaxDelay(Duration uploadRetryMaxDelay) { this.uploadRetryMaxDelay = uploadRetryMaxDelay; }
+    public int getMaxReconciliationAttempts() { return maxReconciliationAttempts; }
+    public void setMaxReconciliationAttempts(int maxReconciliationAttempts) { this.maxReconciliationAttempts = maxReconciliationAttempts; }
+    public Duration getReconciliationInitialDelay() { return reconciliationInitialDelay; }
+    public void setReconciliationInitialDelay(Duration reconciliationInitialDelay) { this.reconciliationInitialDelay = reconciliationInitialDelay; }
+    public Duration getReconciliationMaxDelay() { return reconciliationMaxDelay; }
+    public void setReconciliationMaxDelay(Duration reconciliationMaxDelay) { this.reconciliationMaxDelay = reconciliationMaxDelay; }
     public int getMaxStatusQueries() { return maxStatusQueries; }
     public void setMaxStatusQueries(int maxStatusQueries) { this.maxStatusQueries = maxStatusQueries; }
     public Endpoints getCertification() { return certification; }
@@ -98,12 +124,14 @@ public class SiiProperties {
         private URI tokenUrl;
         private URI uploadUrl;
         private URI statusUrl;
+        private URI dteStatusUrl;
 
         void validate(String environment) {
             validateHttps(seedUrl, environment + " seed-url");
             validateHttps(tokenUrl, environment + " token-url");
             validateHttps(uploadUrl, environment + " upload-url");
             validateHttps(statusUrl, environment + " status-url");
+            validateHttps(dteStatusUrl, environment + " dte-status-url");
         }
 
         private void validateHttps(URI uri, String name) {
@@ -123,5 +151,7 @@ public class SiiProperties {
         public void setUploadUrl(URI uploadUrl) { this.uploadUrl = uploadUrl; }
         public URI getStatusUrl() { return statusUrl; }
         public void setStatusUrl(URI statusUrl) { this.statusUrl = statusUrl; }
+        public URI getDteStatusUrl() { return dteStatusUrl; }
+        public void setDteStatusUrl(URI dteStatusUrl) { this.dteStatusUrl = dteStatusUrl; }
     }
 }

@@ -73,8 +73,9 @@ public interface SiiSubmissionRepository extends JpaRepository<SiiSubmissionEnti
              where (
                     status = 'PENDING_UPLOAD'
                     or (status = 'RECEIVED' and next_attempt_at <= :now)
+                    or (status = 'OUTCOME_UNKNOWN' and next_attempt_at <= :now)
                     or (
-                        status in ('UPLOADING', 'STATUS_QUERYING')
+                        status in ('UPLOADING', 'STATUS_QUERYING', 'RECONCILING')
                         and claimed_at < :staleBefore
                     )
              )

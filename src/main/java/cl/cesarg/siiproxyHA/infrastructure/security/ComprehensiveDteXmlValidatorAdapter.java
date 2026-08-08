@@ -271,14 +271,18 @@ public class ComprehensiveDteXmlValidatorAdapter implements DteXmlValidatorPort 
                 RSAPublicKey publicKey = cafPublicKey(dd);
                 byte[] signatureBytes = Base64.getMimeDecoder()
                         .decode(frmt.getTextContent());
+                byte[] signingDd = SiiTedSignatureNormalizer.normalize(
+                        rawDdElements.get(index)
+                );
                 try {
                     Signature verifier = Signature.getInstance("SHA1withRSA");
                     verifier.initVerify(publicKey);
-                    verifier.update(rawDdElements.get(index));
+                    verifier.update(signingDd);
                     if (!verifier.verify(signatureBytes)) {
                         throw new IllegalArgumentException("FRMT mismatch");
                     }
                 } finally {
+                    Arrays.fill(signingDd, (byte) 0);
                     Arrays.fill(signatureBytes, (byte) 0);
                 }
             } catch (Exception exception) {

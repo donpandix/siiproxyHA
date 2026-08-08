@@ -12,6 +12,7 @@ public record SiiSubmissionDto(
         String status,
         Integer uploadAttempts,
         Integer statusQueries,
+        Integer reconciliationAttempts,
         Long trackId,
         String siiStatus,
         String siiGlosa,
@@ -23,9 +24,12 @@ public record SiiSubmissionDto(
         Integer remoteHttpStatus,
         String responseSha256,
         String lastError,
+        String failureClass,
         OffsetDateTime nextAttemptAt,
         OffsetDateTime uploadedAt,
         OffsetDateTime completedAt,
+        OffsetDateTime outcomeUnknownAt,
+        OffsetDateTime reconciledAt,
         OffsetDateTime createdAt,
         OffsetDateTime updatedAt
 ) {
@@ -37,6 +41,7 @@ public record SiiSubmissionDto(
                 entity.getStatus().name(),
                 entity.getAttemptCount(),
                 entity.getStatusQueryCount(),
+                entity.getReconciliationCount(),
                 entity.getTrackId(),
                 entity.getSiiStatus(),
                 entity.getSiiGlosa(),
@@ -48,9 +53,12 @@ public record SiiSubmissionDto(
                 entity.getRemoteHttpStatus(),
                 entity.getResponseSha256(),
                 entity.getLastError(),
+                entity.getFailureClass(),
                 entity.getNextAttemptAt(),
                 entity.getUploadedAt(),
                 entity.getCompletedAt(),
+                entity.getOutcomeUnknownAt(),
+                entity.getReconciledAt(),
                 entity.getCreatedAt(),
                 entity.getUpdatedAt()
         );

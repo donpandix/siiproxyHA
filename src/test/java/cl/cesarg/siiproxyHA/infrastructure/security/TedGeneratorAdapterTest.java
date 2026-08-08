@@ -66,7 +66,7 @@ class TedGeneratorAdapterTest {
     }
 
     @Test
-    void buildsPublicTedAndSignsExactDdBytes() throws Exception {
+    void buildsPublicTedAndSignsSiiNormalizedDdBytes() throws Exception {
         TedGeneratorPort.GeneratedTed generated = generator.generate(request(
                 "SERVICIO DE IMPUESTOS INTERNOS CON TEXTO EXCEDENTE",
                 "Artículo de prueba"
@@ -95,7 +95,18 @@ class TedGeneratorAdapterTest {
         assertFalse(tedXml.contains("&#13;"));
         assertFalse(tedXml.contains("RSASK"));
         assertFalse(tedXml.contains("RSAPUBK"));
-        assertTrue(verifyFrmt(tedXml, generated.ddXml()));
+        byte[] signingDd = SiiTedSignatureNormalizer.normalize(generated.ddXml());
+        byte[] alteredSigningDd = new String(signingDd, StandardCharsets.ISO_8859_1)
+                .replace("Artículo de prueba", "Artículo alterado")
+                .getBytes(StandardCharsets.ISO_8859_1);
+        try {
+            assertFalse(verifyFrmt(tedXml, generated.ddXml()));
+            assertTrue(verifyFrmt(tedXml, signingDd));
+            assertFalse(verifyFrmt(tedXml, alteredSigningDd));
+        } finally {
+            java.util.Arrays.fill(signingDd, (byte) 0);
+            java.util.Arrays.fill(alteredSigningDd, (byte) 0);
+        }
     }
 
     @Test

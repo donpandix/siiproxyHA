@@ -49,6 +49,12 @@ public class SiiSubmissionEntity {
     @Column(name = "status_query_count", nullable = false)
     private Integer statusQueryCount;
 
+    @Column(name = "reconciliation_count", nullable = false)
+    private Integer reconciliationCount;
+
+    @Column(name = "failure_class", length = 40)
+    private String failureClass;
+
     @Column(name = "track_id")
     private Long trackId;
 
@@ -97,6 +103,12 @@ public class SiiSubmissionEntity {
     @Column(name = "completed_at")
     private OffsetDateTime completedAt;
 
+    @Column(name = "outcome_unknown_at")
+    private OffsetDateTime outcomeUnknownAt;
+
+    @Column(name = "reconciled_at")
+    private OffsetDateTime reconciledAt;
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 
@@ -125,6 +137,10 @@ public class SiiSubmissionEntity {
     public void setAttemptCount(Integer attemptCount) { this.attemptCount = attemptCount; }
     public Integer getStatusQueryCount() { return statusQueryCount; }
     public void setStatusQueryCount(Integer statusQueryCount) { this.statusQueryCount = statusQueryCount; }
+    public Integer getReconciliationCount() { return reconciliationCount; }
+    public void setReconciliationCount(Integer reconciliationCount) { this.reconciliationCount = reconciliationCount; }
+    public String getFailureClass() { return failureClass; }
+    public void setFailureClass(String failureClass) { this.failureClass = failureClass; }
     public Long getTrackId() { return trackId; }
     public void setTrackId(Long trackId) { this.trackId = trackId; }
     public String getSiiStatus() { return siiStatus; }
@@ -157,6 +173,10 @@ public class SiiSubmissionEntity {
     public void setUploadedAt(OffsetDateTime uploadedAt) { this.uploadedAt = uploadedAt; }
     public OffsetDateTime getCompletedAt() { return completedAt; }
     public void setCompletedAt(OffsetDateTime completedAt) { this.completedAt = completedAt; }
+    public OffsetDateTime getOutcomeUnknownAt() { return outcomeUnknownAt; }
+    public void setOutcomeUnknownAt(OffsetDateTime outcomeUnknownAt) { this.outcomeUnknownAt = outcomeUnknownAt; }
+    public OffsetDateTime getReconciledAt() { return reconciledAt; }
+    public void setReconciledAt(OffsetDateTime reconciledAt) { this.reconciledAt = reconciledAt; }
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
     public OffsetDateTime getUpdatedAt() { return updatedAt; }
