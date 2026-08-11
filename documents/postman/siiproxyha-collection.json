@@ -1,9 +1,11 @@
 {
   "info": {
+    "_postman_id": "7fa247a2-1003-4f9c-acb1-148e8e3f128c",
     "name": "siiproxyHA API",
-    "_postman_id": "siiproxyha-collection-001",
     "description": "Colección para probar endpoints básicos de siiproxyHA (ingest y consultas).",
-    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "227602",
+    "_collection_link": "https://go.postman.co/collection/227602-7fa247a2-1003-4f9c-acb1-148e8e3f128c?source=collection_link"
   },
   "item": [
     {
@@ -11,30 +13,6 @@
       "item": [
         {
           "name": "POST Ingest DTE",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"id\": \"9dbb65c0-8f17-4805-9fa9-4b5f33582300\",\n  \"tenantId\": \"cac36041-6911-44d7-96cc-fe9b26a61906\",\n  \"tenantCode\": \"REYES_Y_LARENAS_LIMITADA\",\n  \"rutEnvia\": \"{{rutEnvia}}\",\n  \"tipoDte\": 33,\n  \"folio\": 182,\n  \"fchEmis\": \"2026-02-15\",\n  \"receptor\": {\n    \"rutReceptor\": \"60803000-K\",\n    \"razonSocial\": \"SERVICIO DE IMPUESTOS INTERNOS\",\n    \"giro\": \"SERVICIO PUBLICO\",\n    \"email\": \"contacto@sii.cl\",\n    \"telefono\": \"223951000\",\n    \"direccion\": \"TEATINOS 120\",\n    \"comuna\": \"SANTIAGO\",\n    \"ciudad\": \"SANTIAGO\"\n  },\n  \"references\": [\n    {\n      \"nroLinRef\": 1,\n      \"tpoDocRef\": \"SET\",\n      \"folioRef\": \"183\",\n      \"fchRef\": \"2026-01-03\",\n      \"codRef\": \"1\",\n      \"razonRef\": \"referencias de prueba\"\n    }\n  ],\n  \"items\": [\n    {\n      \"nroLinDet\": 1,\n      \"nmbItem\": \"Producto A\",\n      \"dscItem\": null,\n      \"qtyItem\": 2.0,\n      \"unmdItem\": null,\n      \"prcItem\": 1000.0,\n      \"montoItem\": 2000,\n      \"indExe\": null\n    },\n    {\n      \"nroLinDet\": 2,\n      \"nmbItem\": \"Producto B\",\n      \"dscItem\": null,\n      \"qtyItem\": 5.0,\n      \"unmdItem\": null,\n      \"prcItem\": 1000.0,\n      \"montoItem\": 5000,\n      \"indExe\": null\n    }\n  ],\n  \"mntNeto\": 7000,\n  \"iva\": 1330,\n  \"mntTotal\": 8330\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/dte",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "dte"
-              ]
-            }
-          },
           "event": [
             {
               "listen": "prerequest",
@@ -42,7 +20,10 @@
                 "exec": [
                   "// Generar randomId si no existe",
                   "if(!pm.environment.get('randomId')){pm.environment.set('randomId', Date.now().toString());}"
-                ]
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
               }
             },
             {
@@ -56,10 +37,49 @@
                   "  if(id) pm.environment.set('documentId', id);",
                   "  if(res.objectKey) pm.environment.set('objectKey', res.objectKey);",
                   "}"
-                ]
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
               }
             }
-          ]
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": " {{bearer_token_0g2i}}",
+                "type": "text"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": " venta-erp-000005",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tenantId\": \"{{tenantId}}\",\n  \"tenantCode\": \"REYES_Y_LARENAS_LIMITADA\",\n  \"rutEnvia\": \"{{rutEnvia}}\",\n  \"tipoDte\": 33,\n  \"fchEmis\": \"2026-07-31\",\n  \"receptor\": {\n    \"rutReceptor\": \"60803000-K\",\n    \"razonSocial\": \"SERVICIO DE IMPUESTOS INTERNOS\",\n    \"giro\": \"SERVICIO PUBLICO\",\n    \"email\": \"contacto@sii.cl\",\n    \"telefono\": \"223951000\",\n    \"direccion\": \"TEATINOS 120\",\n    \"comuna\": \"SANTIAGO\",\n    \"ciudad\": \"SANTIAGO\"\n  },\n  \"references\": [\n    {\n      \"nroLinRef\": 1,\n      \"tpoDocRef\": \"SET\",\n      \"folioRef\": \"183\",\n      \"fchRef\": \"2026-01-03\",\n      \"codRef\": \"1\",\n      \"razonRef\": \"referencias de prueba\"\n    }\n  ],\n  \"items\": [\n    {\n      \"nroLinDet\": 1,\n      \"nmbItem\": \"Producto A\",\n      \"dscItem\": null,\n      \"qtyItem\": 2.0,\n      \"unmdItem\": null,\n      \"prcItem\": 1000.0,\n      \"montoItem\": 2000,\n      \"indExe\": null\n    },\n    {\n      \"nroLinDet\": 2,\n      \"nmbItem\": \"Producto B\",\n      \"dscItem\": null,\n      \"qtyItem\": 5.0,\n      \"unmdItem\": null,\n      \"prcItem\": 1000.0,\n      \"montoItem\": 5000,\n      \"indExe\": null\n    },\n    {\n      \"nroLinDet\": 3,\n      \"nmbItem\": \"Producto C\",\n      \"dscItem\": null,\n      \"qtyItem\": 5.0,\n      \"unmdItem\": null,\n      \"prcItem\": 1000.0,\n      \"montoItem\": 5000,\n      \"indExe\": null\n    }\n  ],\n  \"mntNeto\": 10084,\n  \"iva\": 1916,\n  \"mntTotal\": 12000\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/dte",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dte"
+              ]
+            }
+          },
+          "response": []
         },
         {
           "name": "GET Document Status",
@@ -79,7 +99,8 @@
                 "status"
               ]
             }
-          }
+          },
+          "response": []
         },
         {
           "name": "GET Document XML (presigned)",
@@ -99,42 +120,8 @@
                 "xml"
               ]
             }
-          }
-        },
-        {
-          "name": "POST Regenerate Signed XML",
-          "request": {
-            "method": "POST",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/dte/{{documentId}}/xml/regenerate",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "dte",
-                "{{documentId}}",
-                "xml",
-                "regenerate"
-              ]
-            }
           },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "if(pm.response.code===200){",
-                  "  var res = pm.response.json();",
-                  "  if(res.documentId) pm.environment.set('documentId', res.documentId);",
-                  "  if(res.objectKey) pm.environment.set('objectKey', res.objectKey);",
-                  "}"
-                ]
-              }
-            }
-          ]
+          "response": []
         },
         {
           "name": "GET List DTE",
@@ -153,10 +140,14 @@
                 "records"
               ],
               "query": [
-                { "key": "tenantId", "value": "{{tenantId}}" }
+                {
+                  "key": "tenantId",
+                  "value": "{{tenantId}}"
+                }
               ]
             }
-          }
+          },
+          "response": []
         },
         {
           "name": "GET DTE by Id",
@@ -176,27 +167,50 @@
                 "{{documentId}}"
               ],
               "query": [
-                { "key": "tenantId", "value": "{{tenantId}}" }
+                {
+                  "key": "tenantId",
+                  "value": "{{tenantId}}"
+                }
               ]
             }
-          }
+          },
+          "response": []
         },
         {
           "name": "PUT Update DTE",
           "request": {
             "method": "PUT",
-            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"tipoDte\": 33,\n  \"folio\": 1000,\n  \"totNeto\": 1000.0,\n  \"totIVA\": 190.0,\n  \"totMonto\": 1190.0\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/dte/records/{{documentId}}?tenantId={{tenantId}}",
-              "host": [ "{{baseUrl}}" ],
-              "path": [ "api","v1","dte","records","{{documentId}}" ],
-              "query": [ { "key": "tenantId", "value": "{{tenantId}}" } ]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dte",
+                "records",
+                "{{documentId}}"
+              ],
+              "query": [
+                {
+                  "key": "tenantId",
+                  "value": "{{tenantId}}"
+                }
+              ]
             }
-          }
+          },
+          "response": []
         },
         {
           "name": "DELETE DTE",
@@ -205,11 +219,96 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/v1/dte/records/{{documentId}}?tenantId={{tenantId}}",
-              "host": [ "{{baseUrl}}" ],
-              "path": [ "api","v1","dte","records","{{documentId}}" ],
-              "query": [ { "key": "tenantId", "value": "{{tenantId}}" } ]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dte",
+                "records",
+                "{{documentId}}"
+              ],
+              "query": [
+                {
+                  "key": "tenantId",
+                  "value": "{{tenantId}}"
+                }
+              ]
             }
-          }
+          },
+          "response": []
+        },
+        {
+          "name": "xmlRegenerate",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/dte/{{documentId}}/xml/regenerate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dte",
+                "{{documentId}}",
+                "xml",
+                "regenerate"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "sii-submissions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": " {{bearer_token_0g2i}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/dte/{{documentId}}/sii-submissions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dte",
+                "{{documentId}}",
+                "sii-submissions"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "sii-submissions submissionId",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/dte/{{documentId}}/sii-submissions/{{submissionId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dte",
+                "{{documentId}}",
+                "sii-submissions",
+                "{{submissionId}}"
+              ]
+            }
+          },
+          "response": []
         }
       ]
     },
@@ -232,7 +331,8 @@
                 "health"
               ]
             }
-          }
+          },
+          "response": []
         }
       ]
     },
@@ -240,84 +340,129 @@
       "name": "Tenants",
       "item": [
         {
-          "name": "POST Create Tenant",
-          "request": {
-            "method": "POST",
-            "header": [
-              { "key": "Content-Type", "value": "application/json" }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"tenantCode\": \"REYES_Y_LARENAS_LIMITADA\",\n  \"rutEmisor\": \"76184688-4\",\n  \"razonSocial\": \"REYES Y LARENAS LIMITADA\",\n  \"giro\": \"VENTA AL POR MENOR DE OTROS PRODUCTOS EN COMERCIOS ESPECIALIZADOS NCP\",\n  \"acteco\": \"726000\",\n  \"direccion\": \"Viña del Mar\",\n  \"comuna\": \"V Región\",\n  \"ciudad\": \"Viña del Mar\",\n  \"fchResol\": \"2014-08-22\",\n  \"nroResol\": 80,\n  \"active\": true\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/api/v1/tenants", "host": ["{{baseUrl}}"], "path": ["api","v1","tenants"] }
-          }
-        },
-        {
-          "name": "GET List Tenants",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": { "raw": "{{baseUrl}}/api/v1/tenants", "host": ["{{baseUrl}}"], "path": ["api","v1","tenants"] }
-          }
-        },
-        {
-          "name": "GET Tenant by Id",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": { "raw": "{{baseUrl}}/api/v1/tenants/{{tenantId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","tenants","{{tenantId}}"] }
-          }
-        },
-        {
           "name": "Receptores",
           "item": [
             {
               "name": "POST Create Receptor",
               "request": {
                 "method": "POST",
-                "header": [ { "key": "Content-Type", "value": "application/json" } ],
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
                 "body": {
                   "mode": "raw",
                   "raw": "{\n  \"rutReceptor\": \"22222222-2\",\n  \"razonSocial\": \"Cliente Uno\",\n  \"giro\": \"Comercio\",\n  \"email\": \"cliente1@acme.test\",\n  \"telefono\": \"12345678\",\n  \"direccion\": \"Calle X 123\",\n  \"comuna\": \"Santiago\",\n  \"ciudad\": \"Santiago\"\n}"
                 },
-                "url": { "raw": "{{baseUrl}}/api/v1/tenants/{{tenantId}}/receptores", "host": ["{{baseUrl}}"], "path": ["api","v1","tenants","{{tenantId}}","receptores"] }
-              }
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/tenants/{{tenantId}}/receptores",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "tenants",
+                    "{{tenantId}}",
+                    "receptores"
+                  ]
+                }
+              },
+              "response": []
             },
             {
               "name": "GET List Receptores",
               "request": {
                 "method": "GET",
                 "header": [],
-                "url": { "raw": "{{baseUrl}}/api/v1/tenants/{{tenantId}}/receptores", "host": ["{{baseUrl}}"], "path": ["api","v1","tenants","{{tenantId}","receptores"] }
-              }
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/tenants/{{tenantId}}/receptores",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "tenants",
+                    "{{tenantId}}",
+                    "receptores"
+                  ]
+                }
+              },
+              "response": []
             },
             {
               "name": "GET Receptor by Id",
               "request": {
                 "method": "GET",
                 "header": [],
-                "url": { "raw": "{{baseUrl}}/api/v1/receptores/{{receptorId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","receptores","{{receptorId}}"] }
-              }
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/receptores/{{receptorId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "receptores",
+                    "{{receptorId}}"
+                  ]
+                }
+              },
+              "response": []
             },
             {
               "name": "PUT Update Receptor",
               "request": {
                 "method": "PUT",
-                "header": [ { "key": "Content-Type", "value": "application/json" } ],
-                "body": { "mode": "raw", "raw": "{\n  \"razonSocial\": \"Cliente Uno Actualizado\",\n  \"email\": \"nuevo@cliente.test\"\n}" },
-                "url": { "raw": "{{baseUrl}}/api/v1/receptores/{{receptorId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","receptores","{{receptorId}}"] }
-              }
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"razonSocial\": \"Cliente Uno Actualizado\",\n  \"email\": \"nuevo@cliente.test\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/receptores/{{receptorId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "receptores",
+                    "{{receptorId}}"
+                  ]
+                }
+              },
+              "response": []
             },
             {
               "name": "DELETE Receptor",
               "request": {
                 "method": "DELETE",
                 "header": [],
-                "url": { "raw": "{{baseUrl}}/api/v1/receptores/{{receptorId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","receptores","{{receptorId}}"] }
-              }
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/receptores/{{receptorId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "receptores",
+                    "{{receptorId}}"
+                  ]
+                }
+              },
+              "response": []
             }
-            ]
+          ]
         },
         {
           "name": "Certificados",
@@ -330,62 +475,232 @@
                 "body": {
                   "mode": "formdata",
                   "formdata": [
-                    { "key": "rutUsuario", "type": "text", "value": "{{rutUsuario}}" },
-                    { "key": "nombreUsuario", "type": "text", "value": "{{nombreUsuario}}" },
-                    { "key": "password", "type": "text", "value": "{{certPassword}}" },
-                    { "key": "isDefault", "type": "text", "value": "true" },
-                    { "key": "createdBy", "type": "text", "value": "postman" },
-                    { "key": "file", "type": "file" }
+                    {
+                      "key": "rutUsuario",
+                      "type": "text",
+                      "value": "{{rutUsuario}}"
+                    },
+                    {
+                      "key": "nombreUsuario",
+                      "type": "text",
+                      "value": "{{nombreUsuario}}"
+                    },
+                    {
+                      "key": "password",
+                      "type": "text",
+                      "value": "{{certPassword}}"
+                    },
+                    {
+                      "key": "isDefault",
+                      "type": "text",
+                      "value": "true"
+                    },
+                    {
+                      "key": "createdBy",
+                      "type": "text",
+                      "value": "postman"
+                    },
+                    {
+                      "key": "file",
+                      "type": "file",
+                      "src": "/Users/cesar/Code/documentos/certificados/10438332-7.pfx"
+                    }
                   ]
                 },
-                "url": { "raw": "{{baseUrl}}/api/tenants/{{tenantId}}/certificates", "host": ["{{baseUrl}}"], "path": ["api","tenants","{{tenantId}}","certificates"] }
-              }
+                "url": {
+                  "raw": "{{baseUrl}}/api/tenants/{{tenantId}}/certificates",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "tenants",
+                    "{{tenantId}}",
+                    "certificates"
+                  ]
+                }
+              },
+              "response": []
             },
             {
               "name": "GET List Certificates",
               "request": {
                 "method": "GET",
                 "header": [],
-                "url": { "raw": "{{baseUrl}}/api/tenants/{{tenantId}}/certificates", "host": ["{{baseUrl}}"], "path": ["api","tenants","{{tenantId}}","certificates"] }
-              }
+                "url": {
+                  "raw": "{{baseUrl}}/api/tenants/{{tenantId}}/certificates",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "tenants",
+                    "{{tenantId}}",
+                    "certificates"
+                  ]
+                }
+              },
+              "response": []
             },
             {
               "name": "GET Certificate by Id",
               "request": {
                 "method": "GET",
                 "header": [],
-                "url": { "raw": "{{baseUrl}}/api/tenants/{{tenantId}}/certificates/{{certId}}", "host": ["{{baseUrl}}"], "path": ["api","tenants","{{tenantId}}","certificates","{{certId}}"] }
-              }
+                "url": {
+                  "raw": "{{baseUrl}}/api/tenants/{{tenantId}}/certificates/{{certId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "tenants",
+                    "{{tenantId}}",
+                    "certificates",
+                    "{{certId}}"
+                  ]
+                }
+              },
+              "response": []
             },
             {
               "name": "DELETE Certificate",
               "request": {
                 "method": "DELETE",
                 "header": [],
-                "url": { "raw": "{{baseUrl}}/api/tenants/{{tenantId}}/certificates/{{certId}}", "host": ["{{baseUrl}}"], "path": ["api","tenants","{{tenantId}}","certificates","{{certId}}"] }
-              }
+                "url": {
+                  "raw": "{{baseUrl}}/api/tenants/{{tenantId}}/certificates/{{certId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "tenants",
+                    "{{tenantId}}",
+                    "certificates",
+                    "{{certId}}"
+                  ]
+                }
+              },
+              "response": []
             }
           ]
         },
         {
-          "name": "PUT Partial Update Tenant",
+          "name": "POST Create Tenant",
           "request": {
-            "method": "PUT",
-            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"acteco\": \"726000\",\n  \"email\": \"cesar@cesarg.cl\",\n  \"fchResol\": \"2020-08-14\",\n  \"nroResol\": 80,\n  \"active\": true\n}"
+              "raw": "{\n  \"tenantCode\": \"REYES_Y_LARENAS_LIMITADA\",\n  \"rutEmisor\": \"76184688-4\",\n  \"razonSocial\": \"REYES Y LARENAS LIMITADA\",\n  \"giro\": \"VENTA AL POR MENOR DE OTROS PRODUCTOS EN COMERCIOS ESPECIALIZADOS NCP\",\n  \"acteco\": \"726000\",\n  \"direccion\": \"Viña del Mar\",\n  \"comuna\": \"V Región\",\n  \"ciudad\": \"Viña del Mar\",\n  \"fchResol\": \"2014-08-22\",\n  \"nroResol\": 80,\n  \"active\": true\n}"
             },
-            "url": { "raw": "{{baseUrl}}/api/v1/tenants/{{tenantId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","tenants","{{tenantId}}"] }
-          }
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tenants",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tenants"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET List Tenants",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tenants",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tenants"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET Tenant by Id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tenants/{{tenantId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tenants",
+                "{{tenantId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PUT Update Tenant",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"acteco\": \"726000\",\n    \"email\": \"cesar@cesarg.cl\",\n    \"fchResol\": \"2020-08-14\",\n    \"nroResol\": 0,\n    \"active\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tenants/{{tenantId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tenants",
+                "{{tenantId}}"
+              ]
+            }
+          },
+          "response": []
         },
         {
           "name": "DELETE Tenant",
           "request": {
             "method": "DELETE",
             "header": [],
-            "url": { "raw": "{{baseUrl}}/api/v1/tenants/{{tenantId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","tenants","{{tenantId}}"] }
-          }
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tenants/{{tenantId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tenants",
+                "{{tenantId}}"
+              ]
+            }
+          },
+          "response": []
         }
       ]
     },
@@ -396,50 +711,141 @@
           "name": "POST Upload CAF",
           "request": {
             "method": "POST",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": " {{bearer_token_0g2i}}",
+                "type": "text"
+              }
+            ],
             "body": {
               "mode": "formdata",
               "formdata": [
-                { "key": "tenantId", "type": "text", "value": "{{tenantId}}" },
-                { "key": "file", "type": "file" }
+                {
+                  "key": "tenantId",
+                  "type": "text",
+                  "value": "{{tenantId}}"
+                },
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "/Users/cesar/Code/siiproxyHA/documents/caf/FoliosSII76184688331902026872130.xml"
+                }
               ]
             },
-            "url": { "raw": "{{baseUrl}}/api/v1/caf", "host": ["{{baseUrl}}"], "path": ["api","v1","caf"] }
-          }
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/caf",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "caf"
+              ]
+            }
+          },
+          "response": []
         },
         {
           "name": "GET List CAF",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
           "request": {
             "method": "GET",
             "header": [],
-            "url": { "raw": "{{baseUrl}}/api/v1/caf", "host": ["{{baseUrl}}"], "path": ["api","v1","caf"] }
-          }
+            "body": {
+              "mode": "raw",
+              "raw": "",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/caf",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "caf"
+              ]
+            }
+          },
+          "response": []
         },
         {
           "name": "GET CAF by Id",
           "request": {
             "method": "GET",
             "header": [],
-            "url": { "raw": "{{baseUrl}}/api/v1/caf/{{cafId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","caf","{{cafId}}"] }
-          }
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/caf/{{cafId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "caf",
+                "{{cafId}}"
+              ]
+            }
+          },
+          "response": []
         },
         {
           "name": "GET CAF Download",
           "request": {
             "method": "GET",
             "header": [],
-            "url": { "raw": "{{baseUrl}}/api/v1/caf/{{cafId}}/download", "host": ["{{baseUrl}}"], "path": ["api","v1","caf","{{cafId}}","download"] }
-          }
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/caf/{{cafId}}/download",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "caf",
+                "{{cafId}}",
+                "download"
+              ]
+            }
+          },
+          "response": []
         },
         {
           "name": "DELETE CAF",
           "request": {
             "method": "DELETE",
             "header": [],
-            "url": { "raw": "{{baseUrl}}/api/v1/caf/{{cafId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","caf","{{cafId}}"] }
-          }
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/caf/{{cafId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "caf",
+                "{{cafId}}"
+              ]
+            }
+          },
+          "response": []
         }
       ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "bearer_token_0g2i",
+      "secret": true
     }
   ]
 }
