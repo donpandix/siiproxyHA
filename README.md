@@ -1,6 +1,47 @@
 # siiproxyHA
 
-Aplicación backend para gestionar tenants, receptores, certificados, folios CAF y documentos tributarios electrónicos (DTE). Está construida con Java 21 y Spring Boot, y utiliza PostgreSQL, MinIO y LocalStack como infraestructura local.
+Aplicación backend para gestionar tenants, receptores, certificados, folios CAF y documentos tributarios electrónicos (DTE). Expone un flujo interno de ingestión DTE y un API REST público de documentos sobre la misma tubería de emisión. Está construida con Java 21 y Spring Boot, y utiliza PostgreSQL, MinIO y LocalStack como infraestructura local.
+
+## Funcionalidades disponibles
+
+- Administración de tenants con datos tributarios del emisor y resolución SII.
+- Administración de receptores por tenant.
+- Carga, consulta y eliminación de certificados de usuario por tenant.
+- Carga, descarga y administración de CAF.
+- Asignación, asociación, liberación y consulta de folios CAF.
+- Ingestión interna de DTE, consulta de estado y descarga/regeneración de XML firmado.
+- API pública de documentos en `/api/v1/documents` con aislamiento por tenant e idempotencia por `Idempotency-Key`.
+- Consulta de health en `/api/v1/health` y `/actuator/health`.
+
+## Resumen de endpoints
+
+### API pública de documentos
+
+- `POST /api/v1/documents`
+- `GET /api/v1/documents/{documentId}`
+- `GET /api/v1/documents/{documentId}/status`
+
+Notas operativas:
+
+- Requiere header `X-Tenant-Id` con un UUID válido.
+- Soporta actualmente `type = INVOICE`.
+- `Idempotency-Key` debe ser enviado por el cliente para reintentos seguros.
+- La primera creación responde `201 Created`.
+- Un replay con la misma clave y el mismo payload responde `200 OK` con el mismo documento.
+- Reutilizar la misma clave con un payload distinto responde `409 Conflict`.
+
+### API interna y operativa
+
+- `POST /api/v1/dte` para ingestión interna DTE.
+- `GET /api/v1/dte/{id}/status` para estado del documento.
+- `GET /api/v1/dte/{id}/xml` para recuperar XML o URL presignada.
+- `POST /api/v1/dte/{id}/xml/regenerate` para regenerar XML firmado.
+- `GET /api/v1/dte/{dteId}/sii-submissions` y `GET /api/v1/dte/{dteId}/sii-submissions/{submissionId}` para auditoría de envíos.
+- `POST|GET|PUT|DELETE /api/v1/dte/records` para CRUD administrativo.
+- `POST|GET|PUT|DELETE /api/v1/tenants` para tenants.
+- `POST|GET /api/v1/tenants/{tenantId}/receptores` y `GET|PUT|DELETE /api/v1/receptores/{id}` para receptores.
+- `POST|GET|DELETE /api/v1/caf`, `GET /api/v1/caf/{id}/download` y endpoints de folios en `/api/v1/caf/folios/*`.
+- `POST|GET|DELETE /api/tenants/{tenantId}/certificates` para certificados.
 
 ## Requisitos
 
@@ -13,7 +54,7 @@ Antes de comenzar, instala:
   java -version
   ```
 
-No es necesario instalar Maven: el repositorio incluye Maven Wrapper (`mvnw`).
+No es necesario instalar Maven si tu entorno permite ejecutar Maven Wrapper (`mvnw`). Si el wrapper queda bloqueado por políticas locales del sistema, también puedes usar un Maven instalado localmente.
 
 ## Instalación local
 
@@ -57,6 +98,12 @@ No es necesario instalar Maven: el repositorio incluye Maven Wrapper (`mvnw`).
    ./mvnw spring-boot:run
    ```
 
+   Alternativa con Maven instalado localmente:
+
+   ```bash
+   mvn spring-boot:run
+   ```
+
    En Windows, utiliza:
 
    ```powershell
@@ -88,7 +135,14 @@ El repositorio incluye una colección y un entorno local:
 - `documents/postman/siiproxyha-collection.json`
 - `documents/postman/siiproxyha-environment.json`
 
-Importa ambos archivos en Postman y selecciona el entorno `siiproxyHA Local`. También hay archivos XML de ejemplo en `documents/samples/`.
+Importa ambos archivos en Postman y selecciona el entorno `siiproxyHA Local`. La colección incluye requests para tenants, receptores, certificados, CAF, flujo interno DTE y el nuevo API público de documentos. También hay archivos XML de ejemplo en `documents/samples/`.
+
+Para el API público usa:
+
+- `X-Tenant-Id: {{tenantId}}`
+- `Idempotency-Key: {{idempotencyKey}}`
+
+La colección actualiza automáticamente `documentId` cuando una creación de documento responde con éxito.
 
 ## Operación y certificación SII
 
@@ -122,6 +176,12 @@ Ejecutar las pruebas:
 
 ```bash
 ./mvnw test
+```
+
+Alternativa con Maven instalado localmente:
+
+```bash
+mvn test
 ```
 
 Detener la infraestructura sin borrar los datos:

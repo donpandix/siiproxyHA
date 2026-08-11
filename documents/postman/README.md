@@ -1,87 +1,100 @@
-Postman collection and quick curl examples
-
-Import the collection at documents/postman/siiproxyha-collection.json into Postman.
-
-Environment variables available in documents/postman/siiproxyha-environment.json:
-- `baseUrl` (e.g. http://localhost:8080)
-- `tenantId`, `receptorId`, `cafId`, `rutEnvia`
-
-Quick curl examples:
-
-# Tenants
-Create:
-```
-curl -X POST -H "Content-Type: application/json" -d '{"tenantCode":"acme","rutEmisor":"76184688-4","razonSocial":"ACME"}' {{baseUrl}}/api/v1/tenants
-```
-
-List:
-```
-curl {{baseUrl}}/api/v1/tenants
-```
-
-# Receptores
-Create (for tenant):
-```
-curl -X POST -H "Content-Type: application/json" -d '{"rutReceptor":"22222222-2","razonSocial":"Cliente Uno"}' {{baseUrl}}/api/v1/tenants/<TENANT_ID>/receptores
-```
-
-List:
-```
-curl {{baseUrl}}/api/v1/tenants/<TENANT_ID>/receptores
-```
-
-# CAF
-Upload de fixture sanitizado (sirve para probar registro y asignación de folios,
-pero no contiene `RSASK` y no permite generar la firma `FRMT`):
-
-```
-curl -v -F "tenantId=<TENANT_ID>" -F "file=@documents/samples/FoliosSII_33.xml" {{baseUrl}}/api/v1/caf
-```
-
-Para una prueba local de firma, guarde el CAF real bajo `local-secrets/` y nunca
-lo agregue a Git:
-
-```
-curl -v -F "tenantId=<TENANT_ID>" -F "file=@local-secrets/FoliosSII_33.xml" {{baseUrl}}/api/v1/caf
-```
-
-Download:
-```
-curl -L -o caf.xml {{baseUrl}}/api/v1/caf/<CAF_ID>/download
-```
-
-# Health
-```
-curl {{baseUrl}}/api/v1/health
-```
 # Postman — siiproxyHA
 
 Importar los siguientes archivos en Postman:
 
-- `documents/postman/siiproxyha-collection.json` (colección de llamadas)
-- `documents/postman/siiproxyha-environment.json` (entorno local)
+- `documents/postman/siiproxyha-collection.json`
+- `documents/postman/siiproxyha-environment.json`
 
-Pasos rápidos:
+## Variables del environment
 
-1. Arrancar infraestructura local: `docker compose up -d` (Postgres, MinIO, LocalStack si aplica).
-2. Ejecutar la aplicación: `./mvnw spring-boot:run`.
-3. Importar el environment y seleccionar `siiproxyHA Local`.
-4. Importar la colección y ejecutar `POST Ingest DTE`.
-   - Antes de ingresar el DTE, el tenant debe tener `fchResol` y `nroResol` y debe existir un certificado activo cuyo `rutUsuario` corresponda a `{{rutEnvia}}`.
-   - El receptor se informa completo en el body: se actualiza por `(tenantId, rutReceptor)` si existe o se crea si es nuevo.
-   - Los detalles de `items` no requieren un producto previamente registrado; el servidor genera el identificador interno de cada línea.
-   - La colección guardará el `documentId` (o `id`) en la variable `documentId` del environment si la respuesta contiene el campo.
-5. Ejecutar `GET Document Status` y `GET Document XML (presigned)` usando la variable `{{documentId}}`.
-6. Si cambia el formato de generación o se rota la credencial, ejecutar
-   `POST Regenerate Signed XML`. La operación conserva DTE, folio y CAF,
-   reemplaza el XML en el mismo `objectKey` y actualiza sus metadatos.
+- `baseUrl`: por defecto `http://localhost:8080`
+- `tenantId`: UUID del tenant de prueba
+- `documentId`: UUID del documento creado por la colección
+- `cafId`, `cafAssignmentId`, `receptorId`, `certId`, `submissionId`: IDs auxiliares para navegación
+- `rutEnvia`: RUT del usuario firmante para el flujo interno DTE
+- `rutUsuario`, `nombreUsuario`, `certPassword`: datos para cargar certificados
+- `idempotencyKey`: clave para probar la API pública `/api/v1/documents`
 
-Notas:
-- `PUT Partial Update Tenant` modifica solamente los campos enviados. Omitir
-  `receptores` conserva la colección actual; enviar `"receptores": []` la vacía.
-- `fchResol` usa el formato `YYYY-MM-DD` y `nroResol` acepta valores entre
-  `0` y `999999`.
-- `rutEmisor` y los demás datos del emisor siempre se leen desde el tenant registrado; `POST /api/v1/dte` no los modifica.
-- `POST /api/v1/dte` almacena el `EnvioDTE` y responde metadatos con estado `STORED`.
-- La regeneración responde `409` si existe otra operación activa y no debe
-  utilizarse para modificar los datos tributarios del DTE persistido.
+## Cobertura de la colección
+
+La colección incluye requests para:
+
+- health
+- tenants
+- receptores
+- certificados en `/api/tenants/{tenantId}/certificates`
+- CAF y operaciones de folios
+- flujo interno DTE en `/api/v1/dte`
+- API pública de documentos en `/api/v1/documents`
+- consultas de `sii-submissions`
+
+## Flujo sugerido
+
+1. Arrancar infraestructura local con `docker compose up -d`.
+2. Ejecutar la aplicación con `./mvnw spring-boot:run` o `mvn spring-boot:run`.
+3. Crear un tenant con `POST Create Tenant` y guardar su `tenantId` en el environment.
+4. Cargar un certificado con `POST Upload Certificate` si vas a probar el flujo interno DTE.
+5. Cargar un CAF con `POST Upload CAF` y usar las requests de folios si necesitas validar asignación manual.
+6. Probar el flujo interno con `POST Ingest DTE` o el flujo público con `POST Create Public Document`.
+7. Usar `GET Public Document`, `GET Public Document Status`, `GET Document Status`, `GET Document XML (presigned)` o `GET SII Submissions` según el caso.
+
+## Notas operativas
+
+- La API pública requiere `X-Tenant-Id` y usa `Idempotency-Key` para retries seguros.
+- `POST /api/v1/documents` soporta actualmente `type = INVOICE`.
+- La colección guarda `documentId` automáticamente cuando una creación responde `200` o `201`.
+- El flujo interno `POST /api/v1/dte` sigue vigente y utiliza `tenantId` y `rutEnvia` dentro del body.
+- La ruta de certificados no lleva prefijo `/api/v1`; la forma correcta es `/api/tenants/{tenantId}/certificates`.
+- Un replay de la API pública con la misma clave y el mismo payload responde `200`; la reutilización con payload distinto responde `409`.
+
+## Curl rápidos
+
+Crear tenant:
+
+```bash
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"tenantCode":"acme","rutEmisor":"76184688-4","razonSocial":"ACME"}' \
+  http://localhost:8080/api/v1/tenants
+```
+
+Crear documento público:
+
+```bash
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -H "X-Tenant-Id: <TENANT_ID>" \
+  -H "Idempotency-Key: venta-erp-000001" \
+  -d '{
+    "type":"INVOICE",
+    "issuer":{"rutEnvia":"11111111-1"},
+    "receiver":{
+      "rut":"22222222-2",
+      "businessName":"Cliente Uno",
+      "businessActivity":"Servicios",
+      "address":"Calle 123",
+      "commune":"Santiago",
+      "city":"Santiago",
+      "email":"cliente@example.com"
+    },
+    "issueDate":"2026-08-11",
+    "items":[{
+      "line":1,
+      "name":"Servicio",
+      "description":"Servicio mensual",
+      "quantity":1,
+      "unit":"UN",
+      "unitPrice":10000,
+      "amount":10000
+    }],
+    "totals":{"net":10000,"vat":1900,"total":11900},
+    "references":[]
+  }' \
+  http://localhost:8080/api/v1/documents
+```
+
+Consultar health:
+
+```bash
+curl http://localhost:8080/api/v1/health
+```

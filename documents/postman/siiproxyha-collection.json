@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "7fa247a2-1003-4f9c-acb1-148e8e3f128c",
     "name": "siiproxyHA API",
-    "description": "Colección para probar endpoints básicos de siiproxyHA (ingest y consultas).",
+    "description": "Colección para probar la API operativa de siiproxyHA, incluyendo tenants, receptores, certificados, CAF, flujo interno DTE y la API pública /api/v1/documents.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_exporter_id": "227602",
     "_collection_link": "https://go.postman.co/collection/227602-7fa247a2-1003-4f9c-acb1-148e8e3f128c?source=collection_link"
@@ -36,6 +36,7 @@
                   "  var id = res.documentId || res.id || res.id;",
                   "  if(id) pm.environment.set('documentId', id);",
                   "  if(res.objectKey) pm.environment.set('objectKey', res.objectKey);",
+                  "  if(res.submissionId) pm.environment.set('submissionId', res.submissionId);",
                   "}"
                 ],
                 "type": "text/javascript",
@@ -47,11 +48,6 @@
           "request": {
             "method": "POST",
             "header": [
-              {
-                "key": "Authorization",
-                "value": " {{bearer_token_0g2i}}",
-                "type": "text"
-              },
               {
                 "key": "Idempotency-Key",
                 "value": " venta-erp-000005",
@@ -305,6 +301,119 @@
                 "{{documentId}}",
                 "sii-submissions",
                 "{{submissionId}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Public Documents",
+      "item": [
+        {
+          "name": "POST Create Public Document",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if(pm.response.code===201||pm.response.code===200){",
+                  "  var res = pm.response.json();",
+                  "  if(res.documentId) pm.environment.set('documentId', res.documentId);",
+                  "}"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"INVOICE\",\n  \"issuer\": { \"rutEnvia\": \"{{rutEnvia}}\" },\n  \"receiver\": {\n    \"rut\": \"22222222-2\",\n    \"businessName\": \"Cliente Uno\",\n    \"businessActivity\": \"Servicios\",\n    \"address\": \"Calle 123\",\n    \"commune\": \"Santiago\",\n    \"city\": \"Santiago\",\n    \"email\": \"cliente1@acme.test\"\n  },\n  \"issueDate\": \"2026-08-11\",\n  \"items\": [\n    {\n      \"line\": 1,\n      \"name\": \"Servicio mensual\",\n      \"description\": \"Servicio de prueba\",\n      \"quantity\": 1,\n      \"unit\": \"UN\",\n      \"unitPrice\": 10000,\n      \"amount\": 10000\n    }\n  ],\n  \"totals\": {\n    \"net\": 10000,\n    \"vat\": 1900,\n    \"total\": 11900\n  },\n  \"references\": []\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/documents",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "documents"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET Public Document",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/documents/{{documentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "documents",
+                "{{documentId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET Public Document Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/documents/{{documentId}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "documents",
+                "{{documentId}}",
+                "status"
               ]
             }
           },
@@ -711,13 +820,7 @@
           "name": "POST Upload CAF",
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": " {{bearer_token_0g2i}}",
-                "type": "text"
-              }
-            ],
+            "header": [],
             "body": {
               "mode": "formdata",
               "formdata": [
@@ -742,6 +845,132 @@
                 "api",
                 "v1",
                 "caf"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST Allocate Folio",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tenantId\": \"{{tenantId}}\",\n  \"tipoDte\": 33,\n  \"puntoVenta\": 1,\n  \"requestId\": \"{{idempotencyKey}}\",\n  \"assignedTo\": \"postman\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/caf/folios/allocate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "caf",
+                "folios",
+                "allocate"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST Assign Folio To DTE",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tenantId\": \"{{tenantId}}\",\n  \"dteId\": \"{{documentId}}\",\n  \"puntoVenta\": 1,\n  \"requestId\": \"{{idempotencyKey}}\",\n  \"assignedTo\": \"postman\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/caf/folios/assign-to-dte",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "caf",
+                "folios",
+                "assign-to-dte"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST Release Folio",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tenantId\": \"{{tenantId}}\",\n  \"note\": \"released from postman\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/caf/folios/{{cafAssignmentId}}/release",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "caf",
+                "folios",
+                "{{cafAssignmentId}}",
+                "release"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET Folio Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/caf/folios/status?tenantId={{tenantId}}&tipoDte=33&puntoVenta=1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "caf",
+                "folios",
+                "status"
+              ],
+              "query": [
+                {
+                  "key": "tenantId",
+                  "value": "{{tenantId}}"
+                },
+                {
+                  "key": "tipoDte",
+                  "value": "33"
+                },
+                {
+                  "key": "puntoVenta",
+                  "value": "1"
+                }
               ]
             }
           },
@@ -842,10 +1071,5 @@
       ]
     }
   ],
-  "variable": [
-    {
-      "key": "bearer_token_0g2i",
-      "secret": true
-    }
-  ]
+  "variable": []
 }
