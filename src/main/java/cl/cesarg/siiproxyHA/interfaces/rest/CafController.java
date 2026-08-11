@@ -2,6 +2,7 @@ package cl.cesarg.siiproxyHA.interfaces.rest;
 
 import cl.cesarg.siiproxyHA.application.service.CafService;
 import cl.cesarg.siiproxyHA.domain.model.Caf;
+import cl.cesarg.siiproxyHA.interfaces.rest.dto.CafDto;
 import cl.cesarg.siiproxyHA.interfaces.rest.dto.FolioAllocateRequest;
 import cl.cesarg.siiproxyHA.interfaces.rest.dto.FolioAssignDteRequest;
 import cl.cesarg.siiproxyHA.interfaces.rest.dto.FolioAssignmentDto;
@@ -27,20 +28,25 @@ public class CafController {
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<Caf> upload(@RequestParam("tenantId") UUID tenantId,
-                                      @RequestParam(value = "puntoVenta", defaultValue = "1") Integer puntoVenta,
-                                      @RequestParam("file") MultipartFile file) throws Exception {
+    public ResponseEntity<CafDto> upload(@RequestParam("tenantId") UUID tenantId,
+                                         @RequestParam(value = "puntoVenta", defaultValue = "1") Integer puntoVenta,
+                                         @RequestParam("file") MultipartFile file) throws Exception {
         byte[] bytes = file.getBytes();
         Caf created = cafService.create(tenantId, puntoVenta, bytes, file.getOriginalFilename());
-        return ResponseEntity.created(URI.create("/api/v1/caf/" + created.getId())).body(created);
+        return ResponseEntity.created(URI.create("/api/v1/caf/" + created.getId())).body(CafDto.fromEntity(created));
     }
 
     @GetMapping
-    public ResponseEntity<List<Caf>> list() { return ResponseEntity.ok(cafService.list()); }
+    public ResponseEntity<List<CafDto>> list() {
+        return ResponseEntity.ok(cafService.list().stream().map(CafDto::fromEntity).toList());
+    }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Caf> get(@PathVariable("id") UUID id) {
-        return cafService.get(id).map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
+    public ResponseEntity<CafDto> get(@PathVariable("id") UUID id) {
+        return cafService.get(id)
+                .map(CafDto::fromEntity)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @DeleteMapping("/{id}")
